@@ -1,0 +1,50 @@
+<mapper namespace="UserMapper">
+    <select id="GetUser" resultType="User">
+        SELECT id, name FROM users 
+        <where>
+            id in (
+                <foreach collection="ids" item="id" separator=",">
+                    #{id}
+                </foreach>
+            )
+            <if test="name != null">
+                and name = #{name}
+            </if>
+        </where>
+    </select>
+
+    <insert id="InsertUser" parameterType="User">
+        INSERT INTO users (id, name) VALUES (#{id}, #{name})
+    </insert>
+
+
+    <insert id="InsertUserBatch" parameterType="User">
+        INSERT INTO users (id, name) VALUES
+        <foreach collection="users" item="user" separator=",">
+            <if test="user.age >= 10" >
+                (#{user.id}, #{user.name})
+            </if>
+        </foreach>
+    </insert>
+
+
+    <select id="GetUsers" resultType="User">
+        SELECT id, name FROM user
+        <where>
+            <if test="id != 0">
+                and id = #{id}
+            </if>
+            <if test="name != null">
+                and name = #{name}
+            </if>
+            <if test="age != 0">
+                and age = #{age}
+            </if>
+        </where>
+    </select>   
+
+    <select id="GetUserById" resultType="User">
+        SELECT id, name FROM user WHERE id = #{id}
+    </select>
+
+</mapper>
