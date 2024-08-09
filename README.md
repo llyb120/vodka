@@ -2,6 +2,8 @@
 
 Vodka是Go的一个轻量级的半自动化ORM框架，灵感来自MyBatis。
 
+希望可以和go中的gin框架，与柯南中的Gin同Vodka一样，成为形影不离的好伙伴。
+
 ## 特性
 
 - 简单易用 
@@ -18,16 +20,16 @@ Vodka是Go的一个轻量级的半自动化ORM框架，灵感来自MyBatis。
 ### 定义你的model
 ```go
 type User struct {
-	Id   int    `gb:"id"` //gb标签表示对应数据库中的字段
-	Name string `gb:"name"`
-	Age  int    `gb:"age"`
+    Id   int    `gb:"id"` //gb标签表示对应数据库中的字段 
+    Name string `gb:"name"`
+    Age  int    `gb:"age"`
 }
 ```
 
 ### 定义你的mapper接口 (无需实现，vodka会自动装配这些方法)
 ```go
 type UserMapper struct {
-	Select(params interface{}) ([]*User, error) `param:"params"` //params为在xml中映射的名字
+    Select(params interface{}) ([]*User, error) `param:"params"` //params为在xml中映射的名字
     Insert(user *User) (int64, error) `param:"user"`
     InsertBatch(users []*User) (int64, error) `param:"users"`
     Update(user *User) (int64, error) `param:"user"`
