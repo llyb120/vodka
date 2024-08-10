@@ -41,6 +41,24 @@ func TestMapper(t *testing.T) {
 		t.Log(users)
 	})
 
+	t.Run("测试mapper结构体查询", func(t *testing.T) {
+		prepare(t)
+		user, err := userMapper.GetUsersByStruct(User{Id: 1, Name: "test", Age: 18})
+		if err != nil {
+			t.Errorf("获取用户失败: %v", err)
+		}
+		t.Log(user)
+	})
+
+	t.Run("测试mapper指针查询", func(t *testing.T) {
+		prepare(t)
+		user, err := userMapper.GetUsersByPtr(&User{Id: 1, Name: "test", Age: 18})
+		if err != nil {
+			t.Errorf("获取用户失败: %v", err)
+		}
+		t.Log(user)
+	})
+
 	t.Run("测试mapper插入", func(t *testing.T) {
 		prepare(t)
 		rows, id, err := userMapper.Insert(&User{Name: "test", Age: 18})

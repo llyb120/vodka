@@ -107,7 +107,12 @@ func bindMapper(source interface{}, mapper *Mapper, mapperValue reflect.Value, m
 		paramNames := getParamNames(field)
 
 		// 找到目标方法
-		mapperItem, ok := mapper.MapperItemsMap[field.Name]
+		// 优先使用 XML 标签，如果没有则使用字段名
+		methodName := field.Tag.Get("xml")
+		if methodName == "" {
+			methodName = field.Name
+		}
+		mapperItem, ok := mapper.MapperItemsMap[methodName]
 		if !ok {
 			continue
 			// 暂时先不返回错误
@@ -166,7 +171,7 @@ func bindMapper(source interface{}, mapper *Mapper, mapperValue reflect.Value, m
 				}
 			}
 
-			err := mapperItem.Analyzer.Call(field.Name, params, resultWrappers)
+			err := mapperItem.Analyzer.Call(methodName, params, resultWrappers)
 			if err != nil {
 				// 指定的替换为错误
 				for _, index := range errIndexes {

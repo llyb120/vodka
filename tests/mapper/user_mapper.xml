@@ -48,4 +48,19 @@
         )
     </select>
 
+    <select id="GetUsersByStruct" >
+        SELECT * FROM user
+        <where>
+            <if test="id != 0">
+                and id = #{id}
+            </if>
+            <if test="name != null">
+                and name = #{name}
+            </if>
+            <if test="age != 0">
+                and age = #{age}
+            </if>
+        </where>
+    </select>
+
 </mapper>

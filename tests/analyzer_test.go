@@ -61,6 +61,8 @@ type UserMapper struct {
 	GetUsers      func() ([]*User, *User, error)
 	GetUserById   func(id int) *User               `params:"id"`
 	GetUsersInIds func(ids []int) ([]*User, error) `params:"ids"`
+	GetUsersByStruct func(user User) ([]*User, error) `params:"user"`
+	GetUsersByPtr    func(user *User) ([]*User, error) `params:"user" xml:"GetUsersByStruct"`
 
 	// 分别为影响的行数，最后插入的id，错误
 	Insert      func(user *User) (int64, int64, error)    `params:"user"`
