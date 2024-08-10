@@ -1,4 +1,4 @@
-package analyzer
+package runner
 
 import (
 	"fmt"
@@ -10,10 +10,17 @@ import (
 
 // TokenType 定义
 const (
-	Identifier  TokenType = "Identifier"
-	Number      TokenType = "Number"
+	Identifier TokenType = "Identifier"
+	Integer    TokenType = "Integer" // 新增整数类型
+	Float      TokenType = "Float"   // 新增小数类型
+	// Number      TokenType = "Number"
 	Operator    TokenType = "Operator"
 	Parenthesis TokenType = "Parenthesis"
+	String      TokenType = "String" // 新增字符串类型
+
+	// 三元表达式
+	QuestionMark TokenType = "QuestionMark"
+	Colon        TokenType = "Colon"
 )
 
 type TokenType string
@@ -23,7 +30,7 @@ type Token struct {
 }
 type ASTNode struct {
 	Type  string
-	Value string
+	Value interface{}
 	Left  *ASTNode
 	Right *ASTNode
 }
@@ -31,7 +38,7 @@ type AST struct {
 	Root *ASTNode
 }
 
-func EvaluateExpression(expr string, params map[string]interface{}) bool {
+func EvaluateExpression(expr string, params map[string]interface{}) interface{} {
 	// 词法分析
 	tokens := lexicalAnalysis(expr)
 
@@ -46,7 +53,7 @@ func EvaluateExpression(expr string, params map[string]interface{}) bool {
 	if ok {
 		return valBool
 	}
-	return false
+	return val
 }
 
 func printAST(ast *ASTNode) {
@@ -63,24 +70,46 @@ func lexicalAnalysis(expr string) []Token {
 	tokens := make([]Token, 0)
 	var currentToken string
 	var tokenType TokenType
+	var inString bool
+	var stringDelimiter byte
+	var isFloat bool
 
 	for i := 0; i < len(expr); i++ {
 		char := expr[i]
 
 		switch {
+		case inString:
+			if char == stringDelimiter {
+				inString = false
+				tokens = append(tokens, Token{Type: String, Value: currentToken})
+				currentToken = ""
+			} else {
+				currentToken += string(char)
+			}
+		case char == '"' || char == '\'':
+			if currentToken != "" {
+				tokens = append(tokens, Token{Type: tokenType, Value: currentToken})
+				currentToken = ""
+			}
+			inString = true
+			stringDelimiter = char
 		case isWhitespace(char):
 			if currentToken != "" {
 				tokens = append(tokens, Token{Type: tokenType, Value: currentToken})
 				currentToken = ""
 			}
-		case isLetter(char) || char == '.':
+		case isLetter(char) || (char == '.' && tokenType == Identifier):
 			if currentToken == "" {
 				tokenType = Identifier
 			}
 			currentToken += string(char)
-		case isDigit(char):
+		case isDigit(char) || (char == '.' && !isFloat):
 			if currentToken == "" {
-				tokenType = Number
+				tokenType = Integer
+			}
+			if char == '.' {
+				isFloat = true
+				tokenType = Float
 			}
 			currentToken += string(char)
 		case isOperator(char):
@@ -100,6 +129,20 @@ func lexicalAnalysis(expr string) []Token {
 				currentToken = ""
 			}
 			tokens = append(tokens, Token{Type: Parenthesis, Value: string(char)})
+
+		// 三元表达式
+		case char == '?':
+			if currentToken != "" {
+				tokens = append(tokens, Token{Type: tokenType, Value: currentToken})
+				currentToken = ""
+			}
+			tokens = append(tokens, Token{Type: QuestionMark, Value: string(char)})
+		case char == ':':
+			if currentToken != "" {
+				tokens = append(tokens, Token{Type: tokenType, Value: currentToken})
+				currentToken = ""
+			}
+			tokens = append(tokens, Token{Type: Colon, Value: string(char)})
 		}
 	}
 
@@ -124,7 +167,7 @@ func syntaxAnalysis(tokens []Token) *ASTNode {
 }
 
 func parseExpression(tokens []Token, pos *int) *ASTNode {
-	node := parseTerm(tokens, pos)
+	node := parseTernary(tokens, pos)
 	for *pos < len(tokens) && (tokens[*pos].Value == "||") {
 		op := tokens[*pos]
 		*pos++
@@ -137,6 +180,25 @@ func parseExpression(tokens []Token, pos *int) *ASTNode {
 		}
 	}
 	return node
+}
+
+func parseTernary(tokens []Token, pos *int) *ASTNode {
+	condition := parseTerm(tokens, pos)
+	if *pos < len(tokens) && tokens[*pos].Type == QuestionMark {
+		*pos++
+		trueExpr := parseTerm(tokens, pos)
+		if *pos < len(tokens) && tokens[*pos].Type == Colon {
+			*pos++
+			falseExpr := parseTerm(tokens, pos)
+			return &ASTNode{
+				Type:  "TernaryOp",
+				Left:  condition,
+				Right: &ASTNode{Left: trueExpr, Right: falseExpr},
+			}
+		}
+		panic("缺少三元运算符的冒号")
+	}
+	return condition
 }
 
 func parseTerm(tokens []Token, pos *int) *ASTNode {
@@ -186,8 +248,14 @@ func parsePrimary(tokens []Token, pos *int) *ASTNode {
 		}
 	case Identifier:
 		return &ASTNode{Type: "Identifier", Value: token.Value}
-	case Number:
-		return &ASTNode{Type: "Literal", Value: token.Value}
+	case Integer:
+		value, _ := toInt64(token.Value)
+		return &ASTNode{Type: "Integer", Value: value}
+	case Float:
+		value, _ := toFloat64(token.Value)
+		return &ASTNode{Type: "Float", Value: value}
+	case String:
+		return &ASTNode{Type: "String", Value: token.Value}
 	case Parenthesis:
 		if token.Value == "(" {
 			node := parseExpression(tokens, pos)
@@ -245,9 +313,9 @@ func evaluateAST(ast *ASTNode, params map[string]interface{}) interface{} {
 		case "||":
 			return left.(bool) || right.(bool)
 		case "==":
-			return left == right
+			return compareEqual(left, right)
 		case "!=":
-			return left != right
+			return !compareEqual(left, right)
 		case ">":
 			return compareValues(left, right, ">")
 		case "<":
@@ -268,10 +336,29 @@ func evaluateAST(ast *ASTNode, params map[string]interface{}) interface{} {
 			panic(fmt.Sprintf("不支持的操作符: %s", ast.Value))
 		}
 	case "Identifier":
-		value := getValue(ast.Value, params)
+		value := GetValue(ast.Value.(string), params)
 		return value
-	case "Literal":
+	case "Integer":
 		return ast.Value
+		// value, _ := toInt64(ast.Value)
+		// return value
+	case "Float":
+		return ast.Value
+		// value, _ := toFloat64(ast.Value)
+		// return value
+		// num, ok := toFloat64(ast.Value)
+		// if ok {
+		// 	return num
+		// }
+		// return ast.Value
+	case "String":
+		return ast.Value
+	case "TernaryOp":
+		condition := evaluateAST(ast.Left, params)
+		if condition.(bool) {
+			return evaluateAST(ast.Right.Left, params)
+		}
+		return evaluateAST(ast.Right.Right, params)
 	default:
 		panic(fmt.Sprintf("未知的节点类型: %s", ast.Type))
 	}
@@ -331,6 +418,20 @@ func compareValues(left, right interface{}, op string) bool {
 	}
 }
 
+func compareEqual(left, right interface{}) bool {
+	// 处理 nil 值
+	if left == nil || right == nil {
+		return left == right
+	}
+	if left == right {
+		return true
+	}
+	// 尝试转换为string比较
+	leftStr := fmt.Sprintf("%v", left)
+	rightStr := fmt.Sprintf("%v", right)
+	return leftStr == rightStr
+}
+
 // 辅助函数：将接口类型转换为float64
 func toFloat64(v interface{}) (float64, bool) {
 	switch value := v.(type) {
@@ -350,6 +451,26 @@ func toFloat64(v interface{}) (float64, bool) {
 	return 0, false
 }
 
+func toInt64(v interface{}) (int64, bool) {
+	switch value := v.(type) {
+	case int64:
+		return value, true
+	case int:
+		return int64(value), true
+	case int32:
+		return int64(value), true
+	case float64:
+		return int64(value), true
+	case float32:
+		return int64(value), true
+	case string:
+		if i, err := strconv.ParseInt(value, 10, 64); err == nil {
+			return i, true
+		}
+	}
+	return 0, false
+}
+
 // 辅助函数：从参数映射中获取值
 func getValueFromMap(key string, params map[string]interface{}) interface{} {
 	if value, ok := params[key]; ok {
@@ -358,7 +479,7 @@ func getValueFromMap(key string, params map[string]interface{}) interface{} {
 	return nil
 }
 
-func getValue(key string, params interface{}) interface{} {
+func GetValue(key string, params interface{}) interface{} {
 	keys := strings.Split(key, ".")
 	value := params
 	for _, k := range keys {

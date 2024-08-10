@@ -29,6 +29,9 @@ type MapperItem struct {
 func InitMappers(analyzers []*analyzer.Analyzer) error {
 	mutex.Lock()
 	defer mutex.Unlock()
+	// 初始化
+	mappers = make(map[string]*Mapper)
+	mapperCache = make(map[string]interface{})
 	for _, analyzer := range analyzers {
 		initMapper(analyzer)
 	}
@@ -106,7 +109,9 @@ func bindMapper(source interface{}, mapper *Mapper, mapperValue reflect.Value, m
 		// 找到目标方法
 		mapperItem, ok := mapper.MapperItemsMap[field.Name]
 		if !ok {
-			return errors.New("BindMapper: 无法找到方法 " + field.Name)
+			continue
+			// 暂时先不返回错误
+			//return errors.New("BindMapper: 无法找到方法 " + field.Name)
 		}
 
 		// 创建函数

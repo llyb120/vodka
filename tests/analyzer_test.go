@@ -23,8 +23,7 @@ const xmlContent = `
 
     <insert id="InsertUser" parameterType="User">
         INSERT INTO user (id, name) VALUES (
-			<if test="id == 0"> DEFAULT, </if>
-			<if test="id != 0"> #{id}, </if>
+			#{id == null ? DEFAULT : id},
 			#{name}
 		)
     </insert>
@@ -58,9 +57,18 @@ type User struct {
 }
 
 type UserMapper struct {
-	GetUser     func(ids []int) (*User, error) `params:"ids"`
-	GetUsers    func() ([]*User, *User, error)
-	GetUserById func(id int) *User `params:"id"`
+	GetUser       func(ids []int) (*User, error) `params:"ids"`
+	GetUsers      func() ([]*User, *User, error)
+	GetUserById   func(id int) *User               `params:"id"`
+	GetUsersInIds func(ids []int) ([]*User, error) `params:"ids"`
+
+	// 分别为影响的行数，最后插入的id，错误
+	Insert      func(user *User) (int64, int64, error)    `params:"user"`
+	InsertBatch func(users []*User) (int64, int64, error) `params:"users"`
+
+	// 分别为影响的行数，最后插入的id，错误
+	Update func(user *User) (int64, int64, error) `params:"user"`
+	// UpdateBatch func(users []*User) (int64, int64, error) `params:"users"`
 }
 
 func TestAnalyzer(t *testing.T) {
@@ -100,6 +108,11 @@ func TestAnalyzer(t *testing.T) {
 			name:     "测试if",
 			funcName: "InsertUserBatch",
 			params:   map[string]interface{}{"users": []User{{Id: 0, Name: "张三", Age: 20}, {Id: 2, Name: "李四", Age: 9}}},
+		},
+		{
+			name:     "测试三元表达式",
+			funcName: "InsertUser",
+			params:   map[string]interface{}{"user": User{Id: 0, Name: "张三", Age: 20}},
 		},
 	}
 

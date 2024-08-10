@@ -2,7 +2,7 @@ package tests
 
 import (
 	"testing"
-	analyzer "vodka/analyzer"
+	"vodka/runner"
 )
 
 func TestEvaluateExpression(t *testing.T) {
@@ -10,7 +10,7 @@ func TestEvaluateExpression(t *testing.T) {
 		name     string
 		expr     string
 		params   map[string]interface{}
-		expected bool
+		expected interface{}
 	}{
 		{
 			name:     "简单比较",
@@ -78,12 +78,25 @@ func TestEvaluateExpression(t *testing.T) {
 			params:   map[string]interface{}{"a": 1},
 			expected: true,
 		},
+		{
+			name:     "字符串判断",
+			expr:     "a == '1'",
+			params:   map[string]interface{}{"a": "1"},
+			expected: true,
+		},
+		{
+			name:     "三元表达式",
+			expr:     "a == 1 ? 2 : 3",
+			params:   map[string]interface{}{"a": 1},
+			expected: int64(2),
+		},
+
 		// 可以添加更多测试用例
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := analyzer.EvaluateExpression(tt.expr, tt.params)
+			result := runner.EvaluateExpression(tt.expr, tt.params)
 			if result != tt.expected {
 				t.Errorf("EvaluateExpression(%q, %v) = %v, 期望 %v", tt.expr, tt.params, result, tt.expected)
 			}

@@ -45,6 +45,16 @@ func TestConnectMySQL(t *testing.T) {
 		}
 		fmt.Println(user)
 	})
+
+	t.Run("执行插入", func(t *testing.T) {
+		ConnectMySQL(t)
+		ret, err := database.Execute(_db, "insert into user(id, name, age) values('10', ?, ?)", "test", 18)
+		fmt.Println(ret.RowsAffected())
+		fmt.Println(ret.LastInsertId())
+		if err != nil {
+			t.Errorf("查询失败: %v", err)
+		}
+	})
 }
 
 func ConnectMySQL(t *testing.T) *sql.DB {

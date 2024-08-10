@@ -9,7 +9,7 @@ import (
 func TestMapper(t *testing.T) {
 
 	t.Run("测试mapper缓存", func(t *testing.T) {
-		Prepare(t)
+		prepare(t)
 		var user UserMapper
 		err := mapper.BindMapper(&user)
 		if err != nil {
@@ -29,6 +29,25 @@ func TestMapper(t *testing.T) {
 		// }
 		// t.Log(mapper)
 
-		userMapper.GetUserById(10)
+		// userMapper.GetUserById(10)
 	})
+
+	t.Run("测试mapper查询", func(t *testing.T) {
+		prepare(t)
+		users, err := userMapper.GetUsersInIds([]int{1, 2, 3})
+		if err != nil {
+			t.Errorf("获取用户失败: %v", err)
+		}
+		t.Log(users)
+	})
+
+	t.Run("测试mapper插入", func(t *testing.T) {
+		prepare(t)
+		userMapper.Insert(&User{Name: "test", Age: 18})
+	})
+
+}
+
+func prepare(t *testing.T) {
+	Prepare(t)
 }

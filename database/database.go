@@ -66,6 +66,10 @@ func QueryMap(db *sql.DB, query string, args ...interface{}) ([]map[string]inter
 	return maps, nil
 }
 
+func Execute(db *sql.DB, query string, args ...interface{}) (sql.Result, error) {
+	return db.Exec(query, args...)
+}
+
 // dest中目前只允许有以下几种可能：
 // 1. 指向切片的指针, 如：&[]User{}, 表示直接查出一个列表，最常用的用法
 // 2. 指向结构体的指针, 如：&User{}, 如果列表个数唯一，则直接赋值，如果列表个数大于1，则返回报错

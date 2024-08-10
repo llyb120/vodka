@@ -13,12 +13,12 @@
         </where>
     </select>
 
-    <insert id="InsertUser" parameterType="User">
-        INSERT INTO users (id, name) VALUES (#{id}, #{name})
+    <insert id="Insert" parameterType="User">
+        INSERT INTO users (id, name) VALUES (#{id == null ? DEFAULT : id}, #{name})
     </insert>
 
 
-    <insert id="InsertUserBatch" parameterType="User">
+    <insert id="InsertBatch" parameterType="User">
         INSERT INTO users (id, name) VALUES
         <foreach collection="users" item="user" separator=",">
             <if test="user.age >= 10" >
@@ -34,6 +34,14 @@
 
     <select id="GetUserById" resultType="User">
         SELECT id, name FROM user WHERE id = #{id} and id > ${id}
+    </select>
+
+    <select id="GetUsersInIds" resultType="User">
+        SELECT id, name FROM user WHERE id in (
+            <foreach collection="ids" item="id" separator=",">
+                #{id}
+            </foreach>
+        )
     </select>
 
 </mapper>

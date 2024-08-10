@@ -10,6 +10,7 @@ import (
 	"strings"
 	database "vodka/database"
 	mysqld "vodka/database/mysql"
+	runner "vodka/runner"
 	"vodka/xml"
 )
 
@@ -111,7 +112,7 @@ func generateFunction(mapperName string, node *xml.Node) *Function {
 		for _, child := range node.Children {
 			handleNode(&builder, child, params, &invokeParams)
 		}
-		log.Printf("【%s】【%s】 sql : %s", mapperName, node.Attrs["id"], builder.String())
+		log.Printf("【%s】【%s】 sql : %s %v", mapperName, node.Attrs["id"], builder.String(), invokeParams)
 		resultErr = database.QueryStruct(mysqld.GetDB(), builder.String(), invokeParams, resultWrappers)
 		return resultErr
 	}
@@ -149,10 +150,10 @@ func handleIfStatement(builder *strings.Builder, node *xml.Node, params map[stri
 	}
 
 	// 解析并计算test表达式
-	result := EvaluateExpression(testExpr, params)
+	result := runner.EvaluateExpression(testExpr, params)
 
 	// 如果表达式结果为true，则处理if语句的子节点
-	if result {
+	if result != false {
 		for _, child := range node.Children {
 			handleNode(builder, child, params, resultParams)
 		}
@@ -268,7 +269,7 @@ func handleText(builder *strings.Builder, node *xml.Node, params map[string]inte
 		if strings.HasPrefix(match, "${") {
 			// 处理 ${} 格式，直接拼接
 			key := strings.Trim(match, "${}")
-			value := getValue(key, params)
+			value := runner.GetValue(key, params)
 			return fmt.Sprintf("%v", value)
 		} else {
 			// 处理 #{} 格式，使用参数化查询
@@ -284,8 +285,14 @@ func handleText(builder *strings.Builder, node *xml.Node, params map[string]inte
 // 根据key获取值
 // 处理 #{abc.xxx} 格式的内容
 // todo: 处理 ${abc.xxx} 格式的内容 即不处理内容直接输出
-func getValueByBlock(key string, params interface{}) string {
+func getValueByBlock(key string, params map[string]interface{}) string {
 	key = strings.Trim(key, "#{}")
-	value := getValue(key, params)
-	return fmt.Sprintf("%v", value)
+	// 处理三元表达式的情况
+	if strings.Contains(key, "?") {
+		value := runner.EvaluateExpression(key, params)
+		return fmt.Sprintf("%v", value)
+	} else {
+		value := runner.GetValue(key, params)
+		return fmt.Sprintf("%v", value)
+	}
 }
