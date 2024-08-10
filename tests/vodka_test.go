@@ -58,7 +58,11 @@ func TestVodka(t *testing.T) {
 	})
 }
 
+var inited = false
 func Prepare(t *testing.T) {
+	if inited {
+		return
+	}
 	ConnectMySQL(t)
 	_db := ConnectMySQL(t)
 	// 设置数据库
@@ -70,4 +74,5 @@ func Prepare(t *testing.T) {
 	if err != nil {
 		t.Fatalf("InitMapper() error = %v", err)
 	}
+	inited = true
 }

@@ -146,6 +146,9 @@ func bindMapper(source interface{}, mapper *Mapper, mapperValue reflect.Value, m
 					// } else {
 					// 	returns = append(returns, reflect.Zero(resultType))
 					// }
+				} else if resultType == reflect.TypeOf((*int64)(nil)).Elem() {
+					result = new(int64)
+					resultWrappers = append(resultWrappers, result)
 				} else {
 					// 如果是结构体的话，为了成功返回nil，这里必须产生一个指针的指针，即**Struct
 					//result = reflect.New(resultType).Interface()

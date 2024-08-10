@@ -30,9 +30,15 @@ type User struct {
 ```go
 type UserMapper struct {
     Select(params interface{}) ([]*User, error) `param:"params"` //params为在xml中映射的名字
-    Insert(user *User) (int64, error) `param:"user"`
+    // 插入
+    // insert语句最多支持3个返回值，分别为影响的行数、自增主键、错误
+    Insert(user *User) (int64, int64, error) `param:"user"`
     InsertBatch(users []*User) (int64, error) `param:"users"`
+    // 更新
+    // 更新语句最多支持2个返回值，分别为影响的行数、错误
     Update(user *User) (int64, error) `param:"user"`
+    // 删除
+    // 删除语句最多支持2个返回值，分别为影响的行数、错误
     Delete(id int) (int64, error) `param:"id"`
 }
 ```
@@ -118,3 +124,15 @@ userMapper.Delete(1)
 - delete：定义删除语句
 - where：定义查询条件，使用该标签，可直接使用and进行条件拼装，无需判断在第一个条件上不使用and
 - if：定义表达式判断，符合test的表达式才会生效
+
+
+### 其余说明
+- GO中在insert语句中，无法直接使用nil，所以如果你需要在insert语句中使用自增主键，可以这么写，假如主键为int64，以下写法同时可以满足自增主键和非自增主键，当然，如果你只使用自增主键，最好的方法是不对主键写插入
+```xml
+<insert id="Insert">
+    insert into user (id, name, age) values (
+        #{id == 0 ? $AUTO : id},
+        #{name}, #{age}
+    )
+</insert>
+```

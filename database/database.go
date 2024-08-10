@@ -70,6 +70,39 @@ func Execute(db *sql.DB, query string, args ...interface{}) (sql.Result, error) 
 	return db.Exec(query, args...)
 }
 
+func ExecuteInt64(db *sql.DB, query string, args []interface{}, dest []interface{}) error {
+	sqlResult, err := db.Exec(query, args...)
+	if err != nil {
+		return err
+	}
+
+	affected, err := sqlResult.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	lastInsertId, err := sqlResult.LastInsertId()
+	if err != nil {
+		return err
+	}
+
+	//按照影响的行数、最后插入的id以此进行赋值，如果int64的个数超过了2，后续的都忽略
+	useAffected := false
+	for _, _dest := range dest {
+		destValue := reflect.ValueOf(_dest)
+		if destValue.Kind() == reflect.Ptr && destValue.Elem().Kind() == reflect.Int64 {
+			if !useAffected {
+				destValue.Elem().Set(reflect.ValueOf(affected))
+				useAffected = true
+			} else {
+				destValue.Elem().Set(reflect.ValueOf(lastInsertId))
+			}
+		}
+	}
+
+	return nil
+}
+
 // dest中目前只允许有以下几种可能：
 // 1. 指向切片的指针, 如：&[]User{}, 表示直接查出一个列表，最常用的用法
 // 2. 指向结构体的指针, 如：&User{}, 如果列表个数唯一，则直接赋值，如果列表个数大于1，则返回报错

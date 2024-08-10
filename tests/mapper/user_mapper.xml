@@ -14,7 +14,7 @@
     </select>
 
     <insert id="Insert" parameterType="User">
-        INSERT INTO users (id, name) VALUES (#{id == 0 ? 'DEFAULT' : id}, #{name})
+        INSERT INTO user (id, name) VALUES (#{id == 0 ? $AUTO : id}, #{name})
     </insert>
 
 
@@ -26,6 +26,10 @@
             </if>
         </foreach>
     </insert>
+
+    <update id="UpdateById" parameterType="User">
+        UPDATE user SET name = #{name}, age = #{age} WHERE id = #{id}
+    </update>
 
 
     <select id="GetUsers" resultType="User">

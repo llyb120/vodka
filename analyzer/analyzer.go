@@ -130,7 +130,12 @@ func generateFunction(mapperName string, node *xml.Node) *Function {
 			handleNode(&builder, child, params, &invokeParams)
 		}
 		log.Printf("【%s】【%s】 sql : %s %v", mapperName, node.Attrs["id"], builder.String(), invokeParams)
-		resultErr = database.QueryStruct(mysqld.GetDB(), builder.String(), invokeParams, resultWrappers)
+		// 如果是查询语句
+		if node.Name == "select" {
+			resultErr = database.QueryStruct(mysqld.GetDB(), builder.String(), invokeParams, resultWrappers)
+		} else {
+			resultErr = database.ExecuteInt64(mysqld.GetDB(), builder.String(), invokeParams, resultWrappers)
+		}
 		return resultErr
 	}
 
@@ -290,7 +295,11 @@ func handleText(builder *strings.Builder, node *xml.Node, params map[string]inte
 			return fmt.Sprintf("%v", value)
 		} else {
 			// 处理 #{} 格式，使用参数化查询
+			// 特殊情况，如果key为$AUTO，则自动生成id
 			value := getValueByBlock(match, params)
+			if value == "$AUTO" {
+				return "DEFAULT";
+			}
 			*resultParams = append(*resultParams, value)
 			return "?"
 		}
@@ -305,6 +314,18 @@ func handleText(builder *strings.Builder, node *xml.Node, params map[string]inte
 func getValueByBlock(key string, params map[string]interface{}) string {
 	key = strings.Trim(key, "#{}")
 	// 处理三元表达式的情况
+	if strings.Contains(key, "?") {
+		value := runner.EvaluateExpression(key, params)
+		return fmt.Sprintf("%v", value)
+	} else {
+		value := runner.GetValue(key, params)
+		return fmt.Sprintf("%v", value)
+	}
+}
+
+func getValueByDollarBlock(key string, params map[string]interface{}) string {
+	key = strings.Trim(key, "${}")
+	// 处理三元表达式
 	if strings.Contains(key, "?") {
 		value := runner.EvaluateExpression(key, params)
 		return fmt.Sprintf("%v", value)

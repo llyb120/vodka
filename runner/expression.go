@@ -78,6 +78,18 @@ func lexicalAnalysis(expr string) []Token {
 		char := expr[i]
 
 		switch {
+		case char == '$':
+            if currentToken != "" {
+                tokens = append(tokens, Token{Type: tokenType, Value: currentToken})
+                currentToken = ""
+            }
+            currentToken += string(char)
+            for i+1 < len(expr) && (isLetter(expr[i+1]) || isDigit(expr[i+1])) {
+                i++
+                currentToken += string(expr[i])
+            }
+            tokens = append(tokens, Token{Type: String, Value: currentToken})
+            currentToken = ""
 		case inString:
 			if char == stringDelimiter {
 				inString = false

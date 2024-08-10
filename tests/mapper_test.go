@@ -43,7 +43,20 @@ func TestMapper(t *testing.T) {
 
 	t.Run("测试mapper插入", func(t *testing.T) {
 		prepare(t)
-		userMapper.Insert(&User{Name: "test", Age: 18})
+		rows, id, err := userMapper.Insert(&User{Name: "test", Age: 18})
+		if err != nil {
+			t.Errorf("插入用户失败: %v", err)
+		}
+		t.Log(rows, id)
+	})
+
+	t.Run("测试mapper更新", func(t *testing.T) {
+		prepare(t)
+		rows, id, err := userMapper.UpdateById(&User{Id: 1, Name: "test", Age: 18})
+		if err != nil {
+			t.Errorf("插入用户失败: %v", err)
+		}
+		t.Log(rows, id)
 	})
 
 }

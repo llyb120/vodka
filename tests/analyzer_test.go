@@ -51,7 +51,7 @@ const xmlContent = `
 `
 
 type User struct {
-	Id   int    `vo:"id"`
+	Id   int64  `vo:"id"`
 	Name string `vo:"name"`
 	Age  int    `vo:"age"`
 }
@@ -63,11 +63,11 @@ type UserMapper struct {
 	GetUsersInIds func(ids []int) ([]*User, error) `params:"ids"`
 
 	// 分别为影响的行数，最后插入的id，错误
-	Insert      func(user *User) error                    `params:"user"`
+	Insert      func(user *User) (int64, int64, error)    `params:"user"`
 	InsertBatch func(users []*User) (int64, int64, error) `params:"users"`
 
 	// 分别为影响的行数，最后插入的id，错误
-	Update func(user *User) (int64, int64, error) `params:"user"`
+	UpdateById func(user *User) (int64, int64, error) `params:"user"`
 	// UpdateBatch func(users []*User) (int64, int64, error) `params:"users"`
 }
 
@@ -107,12 +107,12 @@ func TestAnalyzer(t *testing.T) {
 		{
 			name:     "测试if",
 			funcName: "InsertUserBatch",
-			params:   map[string]interface{}{"users": []User{{Id: 0, Name: "张三", Age: 20}, {Id: 2, Name: "李四", Age: 9}}},
+			params:   map[string]interface{}{"users": []User{{Name: "张三", Age: 20}, {Name: "李四", Age: 9}}},
 		},
 		{
 			name:     "测试三元表达式",
 			funcName: "InsertUser",
-			params:   map[string]interface{}{"user": User{Id: 0, Name: "张三", Age: 20}},
+			params:   map[string]interface{}{"user": User{Name: "张三", Age: 20}},
 		},
 	}
 

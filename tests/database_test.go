@@ -35,7 +35,7 @@ func TestConnectMySQL(t *testing.T) {
 
 	t.Run("查询Struct为空", func(t *testing.T) {
 		ConnectMySQL(t)
-		user := &User{Id: 10}
+		user := &User{}
 		err := database.QueryStruct(_db, "select * from user where id = ?", []interface{}{10086}, []interface{}{&user})
 		if err != nil {
 			t.Errorf("查询失败: %v", err)
