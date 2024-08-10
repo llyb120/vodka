@@ -37,7 +37,7 @@
     </select>   
 
     <select id="GetUserById" resultType="User">
-        SELECT id, name FROM user WHERE id = #{id} and id > ${id}
+        SELECT id, name FROM user WHERE id = #{id}
     </select>
 
     <select id="GetUsersInIds" resultType="User">

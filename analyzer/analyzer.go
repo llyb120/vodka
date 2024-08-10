@@ -51,14 +51,7 @@ func NewAnalyzer(xmlContent string) *Analyzer {
 	return analyzer
 }
 
-func (t *Analyzer) Call(id string, params map[string]interface{}, resultWrappers []interface{}) error {
-	if !t.inited {
-		return fmt.Errorf("未初始化")
-	}
-	fn, ok := t.Functions[id]
-	if !ok {
-		return fmt.Errorf("函数 %s 不存在", id)
-	}
+func CallFunction(fn *Function, params map[string]interface{}, resultWrappers []interface{}) error {
 	// 如果params中只有一个参数，且为map或者结构体指针的情况下，将其展开放入params中
 	if len(params) == 1 {
 		for k, v := range params {
@@ -76,7 +69,19 @@ func (t *Analyzer) Call(id string, params map[string]interface{}, resultWrappers
 			break
 		}
 	}
+
 	return fn.Func(resultWrappers, params)
+}
+
+func (t *Analyzer) Call(id string, params map[string]interface{}, resultWrappers []interface{}) error {
+	if !t.inited {
+		return fmt.Errorf("未初始化")
+	}
+	fn, ok := t.Functions[id]
+	if !ok {
+		return fmt.Errorf("函数 %s 不存在", id)
+	}
+	return CallFunction(fn, params, resultWrappers)
 }
 
 func (t *Analyzer) Parse() error {
@@ -113,6 +118,45 @@ func (t *Analyzer) Parse() error {
 	return nil
 }
 
+// 编译多个自定义sql
+// 用于将来的自动装配通用sql语句
+func ParseMultiSql(namespace string, sqls []string) ([]*Function, error) {
+	var builder strings.Builder
+	builder.WriteString("<sql>")
+	for _, s := range sqls {
+		s = strings.TrimSpace(s)
+		firstWord := strings.ToUpper(strings.Split(s, " ")[0])
+		s = "<" + firstWord + ">" + s + "</" + firstWord + ">"
+		builder.WriteString(s)
+	}
+	builder.WriteString("</sql>")
+	parser := xml.NewParser(builder.String())
+	root, err := parser.Parse()
+	if err != nil {
+		return nil, err
+	}
+	functions := make([]*Function, 0)
+	for _, node := range root.Children {
+		functions = append(functions, generateFunction(namespace, node))
+	}
+	return functions, nil
+}
+
+// 编译单个sql
+func ParseSingleSql(namespace, sql string) (*Function, error) {
+	// 获得sql的第一个单词
+	sql = strings.TrimSpace(sql)
+	firstWord := strings.ToUpper(strings.Split(sql, " ")[0])
+	// 拼装响应的头
+	sql = "<" + firstWord + ">" + sql + "</" + firstWord + ">"
+	parser := xml.NewParser(sql)
+	root, err := parser.Parse()
+	if err != nil {
+		return nil, err
+	}
+	return generateFunction(namespace, root), nil
+}
+
 // ---------------------- 以下为私有方法 ----------------------
 
 // 生成对应的方法体
@@ -131,7 +175,7 @@ func generateFunction(mapperName string, node *xml.Node) *Function {
 		}
 		log.Printf("【%s】【%s】 sql : %s %v", mapperName, node.Attrs["id"], builder.String(), invokeParams)
 		// 如果是查询语句
-		if node.Name == "select" {
+		if strings.ToUpper(node.Name) == "SELECT" {
 			resultErr = database.QueryStruct(mysqld.GetDB(), builder.String(), invokeParams, resultWrappers)
 		} else {
 			resultErr = database.ExecuteInt64(mysqld.GetDB(), builder.String(), invokeParams, resultWrappers)

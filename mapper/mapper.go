@@ -8,23 +8,30 @@ import (
 	analyzer "vodka/analyzer"
 )
 
-var mappers = make(map[string]*Mapper)
+var mappers map[string]*Mapper
+//= make(map[string]*Mapper)
+// var mappersLock = sync.RWMutex{}
 
 // 缓存，不用每次都重新绑定
-var mapperCache = make(map[string]interface{})
+var mapperCache map[string]interface{}
+//= make(map[string]interface{})
 var mapperCacheLock = sync.RWMutex{}
 
 // initmapper的锁
 var mutex = sync.Mutex{}
 
 type Mapper struct {
-	MapperItemsMap map[string]*MapperItem
+	FunctionMap map[string]*analyzer.Function
+	// MapperItemsMap map[string]*MapperItem
+	NameSpace string
 }
 
 type MapperItem struct {
-	Analyzer *analyzer.Analyzer
+	// Analyzer *analyzer.Analyzer
+	Function *analyzer.Function
 	MethodId string
 }
+
 
 func InitMappers(analyzers []*analyzer.Analyzer) error {
 	mutex.Lock()
@@ -42,16 +49,11 @@ func InitMappers(analyzers []*analyzer.Analyzer) error {
 func initMapper(analyzer *analyzer.Analyzer) {
 	mapper, ok := mappers[analyzer.Namespace]
 	if !ok {
-		mapper = &Mapper{
-			MapperItemsMap: make(map[string]*MapperItem),
-		}
+		mapper = newMapper(analyzer.Namespace)		
 		mappers[analyzer.Namespace] = mapper
 	}
 	for _, function := range analyzer.Functions {
-		mapper.MapperItemsMap[function.Id] = &MapperItem{
-			Analyzer: analyzer,
-			MethodId: function.Id,
-		}
+		mapper.FunctionMap[function.Id] = function
 	}
 }
 
@@ -71,6 +73,7 @@ func BindMapper(source interface{}) error {
 	mapperType := v.Type()
 	// 查找命名空间，为每个方法生成一个函数
 	namespace := mapperType.Name()
+	
 	// 优先查找缓存中是否有，如果有，直接设置指针内容（必定是相同的）
 	mapperCacheLock.RLock()
 	existMapper, ok := mapperCache[namespace]
@@ -79,17 +82,26 @@ func BindMapper(source interface{}) error {
 		v.Set(reflect.ValueOf(existMapper).Elem())
 		return nil
 	}
-	mapper, ok := mappers[namespace]
-	if !ok {
-		return errors.New("InitMapper: 无法找到命名空间 " + namespace)
+
+	// 需要重新初始化的情况
+	mapperCacheLock.Lock()
+	defer mapperCacheLock.Unlock()
+	var mapper *Mapper
+	if mapper, ok = mappers[namespace]; !ok {
+		// 双重检查
+		mapper = newMapper(namespace)
+		mappers[namespace] = mapper
+		// return errors.New("InitMapper: 无法找到命名空间 " + namespace)
 	}
 	err := bindMapper(source, mapper, mapperValue, mapperType, v)
 	if err != nil {
 		return err
 	}
-	mapperCacheLock.Lock()
-	defer mapperCacheLock.Unlock()
-	mapperCache[namespace] = source
+
+	// 保存缓存，使用双检
+	if _, ok := mapperCache[namespace]; !ok {
+		mapperCache[namespace] = source
+	}
 	return nil
 }
 
@@ -112,9 +124,19 @@ func bindMapper(source interface{}, mapper *Mapper, mapperValue reflect.Value, m
 		if methodName == "" {
 			methodName = field.Name
 		}
-		mapperItem, ok := mapper.MapperItemsMap[methodName]
-		if !ok {
-			continue
+		if _, ok := mapper.FunctionMap[methodName]; !ok {
+			// 检查是否有sql的tag
+			sqlTag := field.Tag.Get("sql")
+			if sqlTag == "" {
+				continue
+			}
+			// 生成一个sql的函数
+			function, err := analyzer.ParseSingleSql(mapper.NameSpace, sqlTag)
+			if err != nil {
+				return err
+			}
+			mapper.FunctionMap[methodName] = function
+			// 暂时先不返回错误
 			// 暂时先不返回错误
 			//return errors.New("BindMapper: 无法找到方法 " + field.Name)
 		}
@@ -171,7 +193,7 @@ func bindMapper(source interface{}, mapper *Mapper, mapperValue reflect.Value, m
 				}
 			}
 
-			err := mapperItem.Analyzer.Call(methodName, params, resultWrappers)
+			err := analyzer.CallFunction(mapper.FunctionMap[methodName], params, resultWrappers)
 			if err != nil {
 				// 指定的替换为错误
 				for _, index := range errIndexes {
@@ -224,4 +246,13 @@ func getParamNames(field reflect.StructField) []string {
 		return nil
 	}
 	return strings.Split(tag, ",")
+}
+
+
+func newMapper(namespace string) *Mapper{
+	return &Mapper{
+		// MapperItemsMap: make(map[string]*MapperItem),
+		FunctionMap: make(map[string]*analyzer.Function),
+		NameSpace: namespace,
+	}
 }

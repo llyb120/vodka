@@ -29,7 +29,10 @@ type User struct {
 ### 定义你的mapper接口 (无需实现，vodka会自动装配这些方法)
 ```go
 type UserMapper struct {
+    // 基础查询
     Select(params interface{}) ([]*User, error) `param:"params"` //params为在xml中映射的名字
+    // 部分无需xml的情况，可以直接通过tag自定义sql
+    SelectByCustomSql(params interface{}) ([]*User, error) `param:"params" sql:"select * from user where id = #{id}"`
     // 插入
     // insert语句最多支持3个返回值，分别为影响的行数、自增主键、错误
     Insert(user *User) (int64, int64, error) `param:"user"`
