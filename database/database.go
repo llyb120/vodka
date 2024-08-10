@@ -97,10 +97,10 @@ func QueryStruct(db *sql.DB, query string, args []interface{}, dest []interface{
 				// 遍历结构体的字段
 				for i := 0; i < newElem.NumField(); i++ {
 					field := newElem.Type().Field(i)
-					// 获取字段名，优先使用 gb 标签
+					// 获取字段名，优先使用 vo 标签
 					fieldName := field.Name
-					if gbTag := field.Tag.Get("gb"); gbTag != "" {
-						fieldName = gbTag
+					if voTag := field.Tag.Get("vo"); voTag != "" {
+						fieldName = voTag
 					}
 
 					// 如果map中存在对应的键，则设置字段值
@@ -134,10 +134,10 @@ func QueryStruct(db *sql.DB, query string, args []interface{}, dest []interface{
 				destValue = destValue.Elem()
 				for i := 0; i < destValue.Elem().NumField(); i++ {
 					field := destValue.Elem().Type().Field(i)
-					// 获取字段名，优先使用 gb 标签
+					// 获取字段名，优先使用 vo 标签
 					fieldName := field.Name
-					if gbTag := field.Tag.Get("gb"); gbTag != "" {
-						fieldName = gbTag
+					if voTag := field.Tag.Get("vo"); voTag != "" {
+						fieldName = voTag
 					}
 
 					// 如果map中存在对应的键，则设置字段值

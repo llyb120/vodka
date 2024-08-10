@@ -20,9 +20,9 @@ Vodka是Go的一个轻量级的半自动化ORM框架，灵感来自MyBatis。
 ### 定义你的model
 ```go
 type User struct {
-    Id   int    `gb:"id"` //gb标签表示对应数据库中的字段 
-    Name string `gb:"name"`
-    Age  int    `gb:"age"`
+    Id   int    `vo:"id"` //vo标签表示对应数据库中的字段 
+    Name string `vo:"name"`
+    Age  int    `vo:"age"`
 }
 ```
 

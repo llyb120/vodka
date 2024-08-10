@@ -52,9 +52,9 @@ const xmlContent = `
 `
 
 type User struct {
-	Id   int    `gb:"id"`
-	Name string `gb:"name"`
-	Age  int    `gb:"age"`
+	Id   int    `vo:"id"`
+	Name string `vo:"name"`
+	Age  int    `vo:"age"`
 }
 
 type UserMapper struct {

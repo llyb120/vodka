@@ -54,6 +54,30 @@ func TestEvaluateExpression(t *testing.T) {
 			params:   map[string]interface{}{"a": 4, "b": 4, "c": 7},
 			expected: true,
 		},
+		{
+			name:     "判断null",
+			expr:     "a == null",
+			params:   map[string]interface{}{"a": nil},
+			expected: true,
+		},
+		{
+			name:     "判断非null",
+			expr:     "a != null",
+			params:   map[string]interface{}{"a": 1},
+			expected: true,
+		},
+		{
+			name:     "判断nil",
+			expr:     "a == nil",
+			params:   map[string]interface{}{"a": nil},
+			expected: true,
+		},
+		{
+			name:     "判断非nil",
+			expr:     "a != nil",
+			params:   map[string]interface{}{"a": 1},
+			expected: true,
+		},
 		// 可以添加更多测试用例
 	}
 
