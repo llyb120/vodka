@@ -188,6 +188,18 @@ func handleForeachStatement(builder *strings.Builder, node *xml.Node, params map
 	if !ok {
 		separator = ","
 	}
+	// 获取open和close，默认为空即可
+	open, ok := node.Attrs["open"]
+	if !ok {
+		open = ""
+	}
+	close, ok := node.Attrs["close"]
+	if !ok {
+		close = ""
+	}
+	if open != "" {
+		builder.WriteString(open)
+	}
 	// 拼接字符串
 	// 将 collection 转换为数组
 	var childBuilder0 strings.Builder
@@ -212,6 +224,9 @@ func handleForeachStatement(builder *strings.Builder, node *xml.Node, params map
 		// 去除childStr最后的separator
 		childStr = strings.TrimSuffix(childStr, separator)
 		builder.WriteString(childStr)
+	}
+	if close != "" {
+		builder.WriteString(close)
 	}
 }
 
