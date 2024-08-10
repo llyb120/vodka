@@ -14,7 +14,7 @@
     </select>
 
     <insert id="Insert" parameterType="User">
-        INSERT INTO users (id, name) VALUES (#{id == null ? DEFAULT : id}, #{name})
+        INSERT INTO users (id, name) VALUES (#{id == 0 ? 'DEFAULT' : id}, #{name})
     </insert>
 
 

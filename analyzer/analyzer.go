@@ -59,6 +59,23 @@ func (t *Analyzer) Call(id string, params map[string]interface{}, resultWrappers
 	if !ok {
 		return fmt.Errorf("函数 %s 不存在", id)
 	}
+	// 如果params中只有一个参数，且为map或者结构体指针的情况下，将其展开放入params中
+	if len(params) == 1 {
+		for k, v := range params {
+			params[k] = reflect.ValueOf(v).Interface()
+			// 如果是map
+			if reflect.TypeOf(v).Kind() == reflect.Map {
+				for mk, mv := range v.(map[string]interface{}) {
+					params[mk] = mv
+				}
+			} else if reflect.TypeOf(v).Kind() == reflect.Ptr && reflect.TypeOf(v).Elem().Kind() == reflect.Struct {
+				extractStructFields(reflect.ValueOf(v).Elem(), params)
+			} else if reflect.TypeOf(v).Kind() == reflect.Struct {
+				extractStructFields(reflect.ValueOf(v), params)
+			}
+			break
+		}
+	}
 	return fn.Func(resultWrappers, params)
 }
 
@@ -294,5 +311,22 @@ func getValueByBlock(key string, params map[string]interface{}) string {
 	} else {
 		value := runner.GetValue(key, params)
 		return fmt.Sprintf("%v", value)
+	}
+}
+
+func extractStructFields(structValue reflect.Value, params map[string]interface{}) {
+	// 如果是结构体指针，展开结构体字段
+	structType := structValue.Type()
+	for i := 0; i < structValue.NumField(); i++ {
+		field := structType.Field(i)
+		fieldValue := structValue.Field(i)
+
+		// 优先使用vo tag
+		key := field.Tag.Get("vo")
+		if key == "" {
+			key = field.Name
+		}
+
+		params[key] = fieldValue.Interface()
 	}
 }

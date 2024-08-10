@@ -23,7 +23,7 @@ const xmlContent = `
 
     <insert id="InsertUser" parameterType="User">
         INSERT INTO user (id, name) VALUES (
-			#{id == null ? DEFAULT : id},
+			#{id == 0 ? 'DEFAULT' : id},
 			#{name}
 		)
     </insert>
@@ -63,7 +63,7 @@ type UserMapper struct {
 	GetUsersInIds func(ids []int) ([]*User, error) `params:"ids"`
 
 	// 分别为影响的行数，最后插入的id，错误
-	Insert      func(user *User) (int64, int64, error)    `params:"user"`
+	Insert      func(user *User) error                    `params:"user"`
 	InsertBatch func(users []*User) (int64, int64, error) `params:"users"`
 
 	// 分别为影响的行数，最后插入的id，错误
