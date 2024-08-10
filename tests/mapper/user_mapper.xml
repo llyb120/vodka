@@ -30,21 +30,10 @@
 
     <select id="GetUsers" resultType="User">
         SELECT id, name FROM user
-        <where>
-            <if test="id != 0">
-                and id = #{id}
-            </if>
-            <if test="name != null">
-                and name = #{name}
-            </if>
-            <if test="age != 0">
-                and age = #{age}
-            </if>
-        </where>
     </select>   
 
     <select id="GetUserById" resultType="User">
-        SELECT id, name FROM user WHERE id = #{id}
+        SELECT id, name FROM user WHERE id = #{id} and id > ${id}
     </select>
 
 </mapper>

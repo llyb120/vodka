@@ -9,6 +9,12 @@ import (
 )
 
 var mappers = make(map[string]*Mapper)
+
+// 缓存，不用每次都重新绑定
+var mapperCache = make(map[string]interface{})
+var mapperCacheLock = sync.RWMutex{}
+
+// initmapper的锁
 var mutex = sync.Mutex{}
 
 type Mapper struct {
@@ -29,6 +35,7 @@ func InitMappers(analyzers []*analyzer.Analyzer) error {
 	return nil
 }
 
+// 外部无法调用，只能通过InitMappers调用，所以这里就不需要加锁了
 func initMapper(analyzer *analyzer.Analyzer) {
 	mapper, ok := mappers[analyzer.Namespace]
 	if !ok {
@@ -55,17 +62,32 @@ func BindMapper(source interface{}) error {
 	mapperValue := reflect.ValueOf(source)
 	// 确保传入的是指针
 	if mapperValue.Kind() != reflect.Ptr {
-		panic("InitMapper: 参数必须是指针")
+		return errors.New("InitMapper: 参数必须是指针")
 	}
 	v := mapperValue.Elem()
 	mapperType := v.Type()
 	// 查找命名空间，为每个方法生成一个函数
 	namespace := mapperType.Name()
+	// 优先查找缓存中是否有，如果有，直接设置指针内容（必定是相同的）
+	mapperCacheLock.RLock()
+	existMapper, ok := mapperCache[namespace]
+	mapperCacheLock.RUnlock()
+	if ok {
+		v.Set(reflect.ValueOf(existMapper).Elem())
+		return nil
+	}
 	mapper, ok := mappers[namespace]
 	if !ok {
 		return errors.New("InitMapper: 无法找到命名空间 " + namespace)
 	}
-	return bindMapper(source, mapper, mapperValue, mapperType, v)
+	err := bindMapper(source, mapper, mapperValue, mapperType, v)
+	if err != nil {
+		return err
+	}
+	mapperCacheLock.Lock()
+	defer mapperCacheLock.Unlock()
+	mapperCache[namespace] = source
+	return nil
 }
 
 // 为其生成方法

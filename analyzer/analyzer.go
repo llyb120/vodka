@@ -3,6 +3,7 @@ package analyzer
 import (
 	"errors"
 	"fmt"
+	"log"
 	"reflect"
 	"regexp"
 	"runtime/debug"
@@ -110,6 +111,7 @@ func generateFunction(mapperName string, node *xml.Node) *Function {
 		for _, child := range node.Children {
 			handleNode(&builder, child, params, &invokeParams)
 		}
+		log.Printf("【%s】【%s】 sql : %s", mapperName, node.Attrs["id"], builder.String())
 		resultErr = database.QueryStruct(mysqld.GetDB(), builder.String(), invokeParams, resultWrappers)
 		return resultErr
 	}
@@ -244,13 +246,21 @@ func handleText(builder *strings.Builder, node *xml.Node, params map[string]inte
 	if text == "" {
 		return
 	}
-	// 使用正则表达式匹配 #{abc.xxx} 格式的内容
-	re := regexp.MustCompile(`#\{([^}]+)\}`)
+	// 使用正则表达式匹配 #{abc.xxx} 和 ${abc.xxx} 格式的内容
+	re := regexp.MustCompile(`(#|\$)\{([^}]+)\}`)
 
 	text = re.ReplaceAllStringFunc(text, func(match string) string {
-		value := getValueByBlock(match, params)
-		*resultParams = append(*resultParams, value)
-		return "?"
+		if strings.HasPrefix(match, "${") {
+			// 处理 ${} 格式，直接拼接
+			key := strings.Trim(match, "${}")
+			value := getValue(key, params)
+			return fmt.Sprintf("%v", value)
+		} else {
+			// 处理 #{} 格式，使用参数化查询
+			value := getValueByBlock(match, params)
+			*resultParams = append(*resultParams, value)
+			return "?"
+		}
 	})
 
 	builder.WriteString(text)

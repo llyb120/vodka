@@ -54,6 +54,7 @@ func InitMapper(source interface{}) error {
 	return mapper.BindMapper(source)
 }
 
+
 // func SetDB(_db *sql.DB) {
 // 	database.SetDB(_db)
 // }

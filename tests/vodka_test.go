@@ -34,7 +34,7 @@ func TestVodka(t *testing.T) {
 	// }
 
 	t.Run("test1", func(t *testing.T) {
-		prepare(t)
+		Prepare(t)
 		users, user, err := userMapper.GetUsers()
 		if err != nil {
 			t.Fatalf("GetUsers() error = %v", err)
@@ -44,7 +44,7 @@ func TestVodka(t *testing.T) {
 	})
 
 	t.Run("test2", func(t *testing.T) {
-		prepare(t)
+		Prepare(t)
 		user := userMapper.GetUserById(1)
 		if user == nil {
 			t.Fatalf("GetUserById() error = %v", user)
@@ -58,13 +58,13 @@ func TestVodka(t *testing.T) {
 	})
 }
 
-func prepare(t *testing.T) {
+func Prepare(t *testing.T) {
 	ConnectMySQL(t)
 	_db := ConnectMySQL(t)
 	// 设置数据库
 	database.SetDB(_db)
 	// 扫描mapper
-	vodka.ScanMapper("D:\\project\\gobatis\\tests\\mapper")
+	vodka.ScanMapper("./mapper")
 
 	err := vodka.InitMapper(userMapper)
 	if err != nil {
