@@ -300,7 +300,6 @@ func handleForeachStatement(builder *strings.Builder, node *xml.Node, params map
 }
 
 func handleWhereStatement(builder *strings.Builder, node *xml.Node, params map[string]interface{}, resultParams *[]interface{}) {
-	builder.WriteString(" where ")
 
 	// 移除第一个 "AND" 或 "OR"
 	sqlBuilder := strings.Builder{}
@@ -320,8 +319,12 @@ func handleWhereStatement(builder *strings.Builder, node *xml.Node, params map[s
 		sqlBuilder.WriteString(childSQL)
 		sqlBuilder.WriteString(" ")
 	}
-
-	builder.WriteString(strings.TrimSpace(sqlBuilder.String()))
+	childSql := strings.TrimSpace(sqlBuilder.String())
+	if childSql != "" {
+		builder.WriteString(" where ")
+		builder.WriteString(childSql)
+		builder.WriteByte(' ')
+	}
 }
 
 func handleSetStatement(builder *strings.Builder, node *xml.Node, params map[string]any, resultParams *[]any) {

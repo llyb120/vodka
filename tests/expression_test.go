@@ -96,6 +96,12 @@ func TestEvaluateExpression(t *testing.T) {
 			params:   map[string]interface{}{"a": ""},
 			expected: false,
 		},
+		{
+			name:     "判断order",
+			expr:     "order != ''",
+			params:   map[string]interface{}{"order": "id desc"},
+			expected: true,
+		},
 
 		// 可以添加更多测试用例
 	}

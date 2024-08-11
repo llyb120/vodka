@@ -9,14 +9,18 @@ import (
 )
 
 type VodkaMapper[T any, ID any] struct {
-	InsertOne           func(params *T) (int64, int64, error)             `params:"params"`
-	InsertBatch         func(params []*T) (int64, int64, error)           `params:"params"`
-	UpdateById          func(params *T) (int64, error)                    `params:"params"`
-	UpdateSelectiveById func(params *T) (int64, error)                    `params:"params"`
-	DeleteById          func(id ID) (int64, error)                        `params:"id"`
-	SelectById          func(id ID) (*T, error)                           `params:"id"`
-	SelectAll           func(params *T) ([]*T, error)                     `params:"params"`
-	SelectAllByMap      func(params map[string]interface{}) ([]*T, error) `params:"params"`
+	InsertOne            func(params *T) (int64, int64, error)                                                      `params:"params"`
+	InsertBatch          func(params []*T) (int64, int64, error)                                                    `params:"params"`
+	UpdateById           func(params *T) (int64, error)                                                             `params:"params"`
+	UpdateSelectiveById  func(params *T) (int64, error)                                                             `params:"params"`
+	UpdateByCondition    func(condition *T, action *T) (int64, error)                                               `params:"condition,action"`
+	UpdateByConditionMap func(condition map[string]interface{}, action map[string]interface{}) (int64, error)       `params:"condition,action"`
+	DeleteById           func(id ID) (int64, error)                                                                 `params:"id"`
+	SelectById           func(id ID) (*T, error)                                                                    `params:"id"`
+	SelectAll            func(params *T, order string, offset int64, limit int64) ([]*T, error)                     `params:"params,order,offset,limit"`
+	CountAll             func(params *T) (int64, error)                                                             `params:"params"`
+	SelectAllByMap       func(params map[string]interface{}, order string, offset int64, limit int64) ([]*T, error) `params:"params,order,offset,limit"`
+	CountAllByMap        func(params map[string]interface{}) (int64, error)                                         `params:"params"`
 }
 
 type Tag struct {
@@ -94,6 +98,17 @@ func (m *VodkaMapper[T, ID]) BuildTags(metadata *MetaData) (map[string]string, e
 	deleteByIdBuilder.WriteString("delete from " + metadata.TableName + " <where> ")
 	var selectByIdBuilder strings.Builder
 	selectByIdBuilder.WriteString("select * from " + metadata.TableName + " <where> ")
+	var selectAllBuilder strings.Builder
+	var selectAllWhereBuilder strings.Builder
+	selectAllBuilder.WriteString("select * from " + metadata.TableName + " <where> ")
+	var selectAllByMapBuilder strings.Builder
+	selectAllByMapBuilder.WriteString("select * from " + metadata.TableName + " <where> ")
+	var selectAllByMapWhereBuilder strings.Builder
+	// update的condition
+	var updateByConditionBuilder strings.Builder
+	updateByConditionBuilder.WriteString(`update ` + metadata.TableName + ` <set> `)
+	var updateByConditionMapBuilder strings.Builder
+	updateByConditionMapBuilder.WriteString(`update ` + metadata.TableName + ` <set> `)
 	//var selectAllBuilder strings.Builder
 	//var selectAllByMapBuilder strings.Builder
 
@@ -116,18 +131,32 @@ func (m *VodkaMapper[T, ID]) BuildTags(metadata *MetaData) (map[string]string, e
 			// updateByIdBuilder.WriteString(tags[i] + " = #{" + tags[i] + "}")
 			selectByIdBuilder.WriteString(" and " + tags[i] + " = #{" + tags[i] + "}")
 		} else {
-			updateByIdBuilder.WriteString(tags[i] + " = #{" + tags[i] + "}")
+			updateByIdBuilder.WriteString(tags[i] + " = #{" + tags[i] + "},")
 			// 处理selective的类型，如果是int int64 float64 这些，不能判断==null
 			updateSelectiveByIdBuilder.WriteString(fmt.Sprintf(`<if test="%s != 0 && %s != null && %s != ''">%s = #{%s},</if>`, tags[i], tags[i], tags[i], tags[i], tags[i]))
+			updateSetStatement := fmt.Sprintf(`<if test="action.%s != 0 && action.%s != null && action.%s != ''">%s = #{action.%s},</if>`, tags[i], tags[i], tags[i], tags[i], tags[i])
+			updateByConditionBuilder.WriteString(updateSetStatement)
+			updateByConditionMapBuilder.WriteString(updateSetStatement)
 			// if isNumberType {
 			// } else if(is{
 			// 	updateSelectiveByIdBuilder.WriteString(fmt.Sprintf(`<if test="%s != null">%s = #{%s},</if>`, tags[i], tags[i], tags[i]))
 			// }
 			deleteByIdBuilder.WriteString(" and " + tags[i] + " = #{" + tags[i] + "}")
-			if i != len(fields)-1 {
-				updateByIdBuilder.WriteString(",")
-			}
+			// if i != len(fields)-1 {
+			// 	updateByIdBuilder.WriteString(",")
+			// }
 		}
+		// 查询条件
+		selectAllWhereBuilder.WriteString(fmt.Sprintf(` <if test="%s != null && %s != '' && %s != 0"> and %s = #{%s} </if>`, tags[i], tags[i], tags[i], tags[i], tags[i]))
+		// 针对map的查询条件
+		buildMapCondition(&selectAllWhereBuilder, tags[i])
+		// selectAllByMapWhereBuilder.WriteString(fmt.Sprintf(` <if test="EQ_%s != null && EQ_%s != '' && EQ_%s != 0"> and %s = #{%s} </if>`, tags[i], tags[i], tags[i], tags[i], tags[i]))
+		// selectAllByMapWhereBuilder.WriteString(fmt.Sprintf(` <if test="GT_%s != null && GT_%s != '' && GT_%s != 0"> and %s > #{%s} </if>`, tags[i], tags[i], tags[i], tags[i], tags[i]))
+		// selectAllByMapWhereBuilder.WriteString(fmt.Sprintf(` <if test="LT_%s != null && LT_%s != '' && LT_%s != 0"> and %s < #{%s} </if>`, tags[i], tags[i], tags[i], tags[i], tags[i]))
+		// selectAllByMapWhereBuilder.WriteString(fmt.Sprintf(` <if test="GTE_%s != null && GTE_%s != '' && GTE_%s != 0"> and %s >= #{%s} </if>`, tags[i], tags[i], tags[i], tags[i], tags[i]))
+		// selectAllByMapWhereBuilder.WriteString(fmt.Sprintf(` <if test="LTE_%s != null && LTE_%s != '' && LTE_%s != 0"> and %s <= #{%s} </if>`, tags[i], tags[i], tags[i], tags[i], tags[i]))
+		// selectAllByMapWhereBuilder.WriteString(fmt.Sprintf(` <if test="LIKE_%s != null && LIKE_%s != '' && LIKE_%s != 0"> and %s like concat('%%',#{%s},'%%') </if>`, tags[i], tags[i], tags[i], tags[i], tags[i]))
+		// selectAllByMapWhereBuilder.WriteString(fmt.Sprintf(` <if test="IN_%s != null && IN_%s != '' && IN_%s != 0"> and %s in <foreach collection='%s' item='item' separator=',' open='(' close=')'>#{item}</foreach> </if>`, tags[i], tags[i], tags[i], tags[i], tags[i]))
 		if i != len(fields)-1 {
 			insertOneBuilder.WriteString(",")
 			insertBatchBuilder.WriteString(",")
@@ -137,6 +166,8 @@ func (m *VodkaMapper[T, ID]) BuildTags(metadata *MetaData) (map[string]string, e
 	insertBatchBuilder.WriteString(") values <foreach collection='params' item='item' separator=','>(")
 	updateByIdBuilder.WriteString("</set> <where>")
 	updateSelectiveByIdBuilder.WriteString("</set> <where>")
+	updateByConditionBuilder.WriteString("</set> <where>")
+	updateByConditionMapBuilder.WriteString("</set> <where>")
 	// 处理值
 	for i := 0; i < len(fields); i++ {
 		// 如果是主键
@@ -149,6 +180,9 @@ func (m *VodkaMapper[T, ID]) BuildTags(metadata *MetaData) (map[string]string, e
 			insertOneBuilder.WriteString("#{" + tags[i] + "}")
 			insertBatchBuilder.WriteString("#{item." + tags[i] + "}")
 		}
+		// 更新语句
+		updateByConditionBuilder.WriteString(fmt.Sprintf(`<if test="condition.%s != 0 && condition.%s != null && condition.%s != ''"> and %s = #{condition.%s}</if>`, tags[i], tags[i], tags[i], tags[i], tags[i]))
+		buildMapCondition(&updateByConditionMapBuilder, "condition." + tags[i])
 		if i != len(fields)-1 {
 			insertOneBuilder.WriteString(",")
 			insertBatchBuilder.WriteString(",")
@@ -160,6 +194,14 @@ func (m *VodkaMapper[T, ID]) BuildTags(metadata *MetaData) (map[string]string, e
 	updateSelectiveByIdBuilder.WriteString("</where>")
 	deleteByIdBuilder.WriteString("</where>")
 	selectByIdBuilder.WriteString("</where>")
+	selectAllBuilder.WriteString(selectAllWhereBuilder.String())
+	selectAllBuilder.WriteString(`</where> <if test="order != ''"> order by ${order} </if> limit #{offset},#{limit}`)
+	selectAllByMapBuilder.WriteString(selectAllByMapWhereBuilder.String())
+	selectAllByMapBuilder.WriteString(`</where> <if test="order != ''"> order by ${order} </if> limit #{offset},#{limit}`)
+	updateByConditionBuilder.WriteString("</where>")
+	updateByConditionMapBuilder.WriteString("</where>")
+
+	// 针对map类参数的处理
 
 	resultMap := make(map[string]string)
 	resultMap["InsertOne"] = insertOneBuilder.String()
@@ -167,8 +209,27 @@ func (m *VodkaMapper[T, ID]) BuildTags(metadata *MetaData) (map[string]string, e
 	resultMap["UpdateById"] = updateByIdBuilder.String()
 	resultMap["UpdateSelectiveById"] = updateSelectiveByIdBuilder.String()
 	resultMap["DeleteById"] = deleteByIdBuilder.String()
+	resultMap["SelectById"] = selectByIdBuilder.String()
+	resultMap["SelectAll"] = selectAllBuilder.String()
+	resultMap["CountAll"] = fmt.Sprintf(`select count(*) from %s <where> %s </where>`, metadata.TableName, selectAllWhereBuilder.String())
+	resultMap["SelectAllByMap"] = selectAllByMapBuilder.String()
+	resultMap["CountAllByMap"] = fmt.Sprintf(`select count(*) from %s <where> %s </where>`, metadata.TableName, selectAllByMapWhereBuilder.String())
+	resultMap["UpdateByCondition"] = updateByConditionBuilder.String()
+	resultMap["UpdateByConditionMap"] = updateByConditionMapBuilder.String()
 
 	return resultMap, nil
+}
+
+
+// 构造conditionMap
+func buildMapCondition(builder *strings.Builder, tag string) {
+	builder.WriteString(fmt.Sprintf(` <if test="EQ_%s != null && EQ_%s != '' && EQ_%s != 0"> and %s = #{%s} </if>`, tag, tag, tag, tag, tag))
+	builder.WriteString(fmt.Sprintf(` <if test="GT_%s != null && GT_%s != '' && GT_%s != 0"> and %s > #{%s} </if>`, tag, tag, tag, tag, tag))
+	builder.WriteString(fmt.Sprintf(` <if test="LT_%s != null && LT_%s != '' && LT_%s != 0"> and %s < #{%s} </if>`, tag, tag, tag, tag, tag))
+	builder.WriteString(fmt.Sprintf(` <if test="GTE_%s != null && GTE_%s != '' && GTE_%s != 0"> and %s >= #{%s} </if>`, tag, tag, tag, tag, tag))
+	builder.WriteString(fmt.Sprintf(` <if test="LTE_%s != null && LTE_%s != '' && LTE_%s != 0"> and %s <= #{%s} </if>`, tag, tag, tag, tag, tag))
+	builder.WriteString(fmt.Sprintf(` <if test="LIKE_%s != null && LIKE_%s != '' && LIKE_%s != 0"> and %s like concat('%%',#{%s},'%%') </if>`, tag, tag, tag, tag, tag))
+	builder.WriteString(fmt.Sprintf(` <if test="IN_%s != null && IN_%s != '' && IN_%s != 0"> and %s in <foreach collection='%s' item='item' separator=',' open='(' close=')'>#{item}</foreach> </if>`, tag, tag, tag, tag, tag))
 }
 
 type User struct {

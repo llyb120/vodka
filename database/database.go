@@ -2,8 +2,11 @@ package database
 
 import (
 	"database/sql"
+	"errors"
+	"fmt"
 	_ "github.com/go-sql-driver/mysql" // 添加这行
 	"reflect"
+	"strconv"
 	mysqld "vodka/database/mysql"
 )
 
@@ -142,6 +145,12 @@ func QueryStruct(db *sql.DB, query string, args []interface{}, dest []interface{
 
 					// 如果map中存在对应的键，则设置字段值
 					if value, ok := m[fieldName]; ok {
+						// 特殊处理一下，如果是string类型，是不能设置为nil的
+						if value == nil {
+							if field.Type.Kind() == reflect.String {
+								value = ""
+							}
+						}
 						// 将interface{}转换为字段类型
 						fieldValue := reflect.ValueOf(value)
 						if fieldValue.Type().ConvertibleTo(field.Type) {
@@ -157,6 +166,31 @@ func QueryStruct(db *sql.DB, query string, args []interface{}, dest []interface{
 			// 将新的切片赋值给目标变量
 			destValue.Elem().Set(newSlice)
 			// sliceContainers = append(sliceContainers, i)
+		} else if destValue.Kind() == reflect.Ptr && destValue.Elem().Kind() == reflect.Int64 {
+			// 如果是int64类型，则必然是count查询，返回一个int64
+			if len(maps) == 1 {
+				// 取出map的第一个value，转为int64
+				m := maps[0]
+				var ret int64
+				for _, v := range m {
+					switch v := v.(type) {
+					case int, int8, int16, int32, int64:
+						ret = reflect.ValueOf(v).Int()
+					case uint, uint8, uint16, uint32, uint64:
+						ret = int64(reflect.ValueOf(v).Uint())
+					case float32, float64:
+						ret = int64(reflect.ValueOf(v).Float())
+					case string:
+						ret, _ = strconv.ParseInt(v, 10, 64)
+					default:
+						return errors.New(fmt.Sprintf("无法转换类型 %T 为 int64", v))
+					}
+					break
+				}
+				destValue.Elem().Set(reflect.ValueOf(ret))
+			} else {
+				destValue.Elem().Set(reflect.Zero(destValue.Elem().Type()))
+			}
 		} else if destValue.Kind() == reflect.Ptr && destValue.Elem().Elem().Kind() == reflect.Struct {
 			// 这里必须用指针的指针进行判断
 			// 如果maps只有一个，则映射到结构体

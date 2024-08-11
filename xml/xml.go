@@ -56,10 +56,10 @@ func (p *Parser) Parse() (*Node, error) {
 			return
 		}
 		// trim后的空节点不要的干活
-		text := strings.TrimSpace(builder.String())
+		text := builder.String()
 		//fmt.Println("text:", text)
 		// 处理text的缓冲
-		if text != "" && len(stack) > 0 {
+		if strings.TrimSpace(text) != "" && len(stack) > 0 {
 			pNode := stack[len(stack)-1]
 			node := &Node{Type: Text, Text: text}
 			pNode.Children = append(pNode.Children, node)
