@@ -52,13 +52,18 @@ type UserMapper struct {
 - 以下基础语句会自动装配，无需再书写xml文件
 ```go
 type VodkaMapper[T any, ID any] struct {
-	InsertOne      func(params *T) (int64, int64, error)             `params:"params"`
-	InsertBatch    func(params []*T) (int64, int64, error)           `params:"params"`
-	UpdateById     func(params *T) (int64, error)                    `params:"params"`
-	DeleteById     func(id ID) (int64, error)                        `params:"id"`
-	SelectById     func(id ID) (*T, error)                           `params:"id"`
-	SelectAll      func(params *T) ([]*T, error)                     `params:"params"`
-	SelectAllByMap func(params map[string]interface{}) ([]*T, error) `params:"params"`
+	InsertOne            func(params *T) (int64, int64, error)                                                      `params:"params"`
+	InsertBatch          func(params []*T) (int64, int64, error)                                                    `params:"params"`
+	UpdateById           func(params *T) (int64, error)                                                             `params:"params"`
+	UpdateSelectiveById  func(params *T) (int64, error)                                                             `params:"params"`
+	UpdateByCondition    func(condition *T, action *T) (int64, error)                                               `params:"condition,action"`
+	UpdateByConditionMap func(condition map[string]interface{}, action map[string]interface{}) (int64, error)       `params:"condition,action"`
+	DeleteById           func(id ID) (int64, error)                                                                 `params:"id"`
+	SelectById           func(id ID) (*T, error)                                                                    `params:"id"`
+	SelectAll            func(params *T, order string, offset int64, limit int64) ([]*T, error)                     `params:"params,order,offset,limit"`
+	CountAll             func(params *T) (int64, error)                                                             `params:"params"`
+	SelectAllByMap       func(params map[string]interface{}, order string, offset int64, limit int64) ([]*T, error) `params:"params,order,offset,limit"`
+	CountAllByMap        func(params map[string]interface{}) (int64, error)                                         `params:"params"`
 }
 
 // 示例

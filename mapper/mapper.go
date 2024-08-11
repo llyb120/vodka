@@ -109,7 +109,12 @@ func BindMapper(source interface{}) error {
 // 为其生成方法
 func bindMapper(source interface{}, mapper *Mapper, mapperValue reflect.Value, mapperType reflect.Type, v reflect.Value) error {
 	// 获得metadata
-	metaData := NewMetaData(mapperValue)
+	metaData := NewMetaData(mapper.NameSpace, mapperValue)
+	if metaData != nil {
+		for _, function := range metaData.Functions {
+			mapper.FunctionMap[function.Id] = function
+		}
+	}
 	// 如果有 BuildTags 方法，直接调用
 	// var customSqlMap map[string]string
 	// customSqlMap := make(map[string]string)
@@ -122,14 +127,14 @@ func bindMapper(source interface{}, mapper *Mapper, mapperValue reflect.Value, m
 			vodkaMapperType := field.Type
 			for j := 0; j < vodkaMapperType.NumField(); j++ {
 				vodkaField := vodkaMapperType.Field(j)
-				err := generateFunctionBody(mapper, v.Field(i), metaData, vodkaField)
+				err := generateFunctionBody(mapper, v.Field(i), vodkaField)
 				if err != nil {
 					return err
 				}
 			}
 			// log.Println("ok")
 		} else {
-			err := generateFunctionBody(mapper, v, metaData, field)
+			err := generateFunctionBody(mapper, v, field)
 			if err != nil {
 				return err
 			}
@@ -140,7 +145,7 @@ func bindMapper(source interface{}, mapper *Mapper, mapperValue reflect.Value, m
 	return nil
 }
 
-func generateFunctionBody(mapper *Mapper, v reflect.Value, metaData *MetaData, field reflect.StructField) error {
+func generateFunctionBody(mapper *Mapper, v reflect.Value, field reflect.StructField) error {
 	fieldType := field.Type
 
 	// 如果是一个方法
@@ -163,21 +168,17 @@ func generateFunctionBody(mapper *Mapper, v reflect.Value, metaData *MetaData, f
 	}
 	if _, ok := mapper.FunctionMap[methodName]; !ok {
 		var sqlTag string
-		if metaData == nil {
-			sqlTag = field.Tag.Get("sql")
-		} else if sqlTag, ok = metaData.CustomSqlMap[methodName]; !ok {
-			sqlTag = field.Tag.Get("sql")
-		}
+		sqlTag = field.Tag.Get("sql")
+
 		// 检查是否有sql的tag
-		if sqlTag == "" {
-			return nil
+		if sqlTag != "" {
+			// 生成一个sql的函数
+			function, err := analyzer.ParseSingleSql(mapper.NameSpace, sqlTag)
+			if err != nil {
+				return err
+			}
+			mapper.FunctionMap[methodName] = function
 		}
-		// 生成一个sql的函数
-		function, err := analyzer.ParseSingleSql(mapper.NameSpace, sqlTag)
-		if err != nil {
-			return err
-		}
-		mapper.FunctionMap[methodName] = function
 		// 暂时先不返回错误
 		// 暂时先不返回错误
 		//return errors.New("BindMapper: 无法找到方法 " + field.Name)

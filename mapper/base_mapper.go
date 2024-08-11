@@ -6,6 +6,7 @@ import (
 	"log"
 	"reflect"
 	"strings"
+	"vodka/analyzer"
 )
 
 type VodkaMapper[T any, ID any] struct {
@@ -29,7 +30,7 @@ type Tag struct {
 	Sql string
 }
 
-func (m *VodkaMapper[T, ID]) BuildTags(metadata *MetaData) (map[string]string, error) {
+func (m *VodkaMapper[T, ID]) BuildTags(metadata *MetaData) ([]*analyzer.Function, error) {
 	if metadata == nil {
 		return nil, errors.New("没有分析出 _ 字段附加的表信息，无法使用BaseMapper")
 	}
@@ -87,28 +88,28 @@ func (m *VodkaMapper[T, ID]) BuildTags(metadata *MetaData) (map[string]string, e
 
 	// 拼装sql
 	var insertOneBuilder strings.Builder
-	insertOneBuilder.WriteString("insert into " + metadata.TableName + " (")
+	insertOneBuilder.WriteString("<insert id=\"InsertOne\">insert into " + metadata.TableName + " (")
 	var insertBatchBuilder strings.Builder
-	insertBatchBuilder.WriteString("insert into " + metadata.TableName + " (")
+	insertBatchBuilder.WriteString("<insert id=\"InsertBatch\">insert into " + metadata.TableName + " (")
 	var updateByIdBuilder strings.Builder
-	updateByIdBuilder.WriteString("update " + metadata.TableName + " <set>")
+	updateByIdBuilder.WriteString("<update id=\"UpdateById\">update " + metadata.TableName + " <set>")
 	var updateSelectiveByIdBuilder strings.Builder
-	updateSelectiveByIdBuilder.WriteString("update " + metadata.TableName + " <set>")
+	updateSelectiveByIdBuilder.WriteString("<update id=\"UpdateSelectiveById\">update " + metadata.TableName + " <set>")
 	var deleteByIdBuilder strings.Builder
-	deleteByIdBuilder.WriteString("delete from " + metadata.TableName + " <where> ")
+	deleteByIdBuilder.WriteString("<delete id=\"DeleteById\">delete from " + metadata.TableName + " <where> ")
 	var selectByIdBuilder strings.Builder
-	selectByIdBuilder.WriteString("select * from " + metadata.TableName + " <where> ")
+	selectByIdBuilder.WriteString("<select id=\"SelectById\">select * from " + metadata.TableName + " <where> ")
 	var selectAllBuilder strings.Builder
 	var selectAllWhereBuilder strings.Builder
-	selectAllBuilder.WriteString("select * from " + metadata.TableName + " <where> ")
+	selectAllBuilder.WriteString("<select id=\"SelectAll\">select * from " + metadata.TableName + " <where> ")
 	var selectAllByMapBuilder strings.Builder
-	selectAllByMapBuilder.WriteString("select * from " + metadata.TableName + " <where> ")
+	selectAllByMapBuilder.WriteString("<select id=\"SelectAllByMap\">select * from " + metadata.TableName + " <where> ")
 	var selectAllByMapWhereBuilder strings.Builder
 	// update的condition
 	var updateByConditionBuilder strings.Builder
-	updateByConditionBuilder.WriteString(`update ` + metadata.TableName + ` <set> `)
+	updateByConditionBuilder.WriteString(`<update id="UpdateByCondition">update ` + metadata.TableName + ` <set> `)
 	var updateByConditionMapBuilder strings.Builder
-	updateByConditionMapBuilder.WriteString(`update ` + metadata.TableName + ` <set> `)
+	updateByConditionMapBuilder.WriteString(`<update id="UpdateByConditionMap">update ` + metadata.TableName + ` <set> `)
 	//var selectAllBuilder strings.Builder
 	//var selectAllByMapBuilder strings.Builder
 
@@ -182,44 +183,45 @@ func (m *VodkaMapper[T, ID]) BuildTags(metadata *MetaData) (map[string]string, e
 		}
 		// 更新语句
 		updateByConditionBuilder.WriteString(fmt.Sprintf(`<if test="condition.%s != 0 && condition.%s != null && condition.%s != ''"> and %s = #{condition.%s}</if>`, tags[i], tags[i], tags[i], tags[i], tags[i]))
-		buildMapCondition(&updateByConditionMapBuilder, "condition." + tags[i])
+		buildMapCondition(&updateByConditionMapBuilder, "condition."+tags[i])
 		if i != len(fields)-1 {
 			insertOneBuilder.WriteString(",")
 			insertBatchBuilder.WriteString(",")
 		}
 	}
-	insertOneBuilder.WriteString(")")
-	insertBatchBuilder.WriteString(")</foreach>")
-	updateByIdBuilder.WriteString("</where>")
-	updateSelectiveByIdBuilder.WriteString("</where>")
-	deleteByIdBuilder.WriteString("</where>")
-	selectByIdBuilder.WriteString("</where>")
+	insertOneBuilder.WriteString(")</insert>")
+	insertBatchBuilder.WriteString(")</foreach></insert>")
+	updateByIdBuilder.WriteString("</where></update>")
+	updateSelectiveByIdBuilder.WriteString("</where></update>")
+	deleteByIdBuilder.WriteString("</where></delete>")
+	selectByIdBuilder.WriteString("</where></select>")
 	selectAllBuilder.WriteString(selectAllWhereBuilder.String())
-	selectAllBuilder.WriteString(`</where> <if test="order != ''"> order by ${order} </if> limit #{offset},#{limit}`)
+	selectAllBuilder.WriteString(`</where> <if test="order != ''"> order by ${order} </if> limit #{offset},#{limit}</select>`)
 	selectAllByMapBuilder.WriteString(selectAllByMapWhereBuilder.String())
-	selectAllByMapBuilder.WriteString(`</where> <if test="order != ''"> order by ${order} </if> limit #{offset},#{limit}`)
-	updateByConditionBuilder.WriteString("</where>")
-	updateByConditionMapBuilder.WriteString("</where>")
+	selectAllByMapBuilder.WriteString(`</where> <if test="order != ''"> order by ${order} </if> limit #{offset},#{limit}</select>`)
+	updateByConditionBuilder.WriteString("</where></update>")
+	updateByConditionMapBuilder.WriteString("</where></update>")
 
 	// 针对map类参数的处理
+	var builder strings.Builder
+	builder.WriteString("<mapper>")
+	builder.WriteString(insertOneBuilder.String())
+	builder.WriteString(insertBatchBuilder.String())
+	builder.WriteString(updateByIdBuilder.String())
+	builder.WriteString(updateSelectiveByIdBuilder.String())
+	builder.WriteString(deleteByIdBuilder.String())
+	builder.WriteString(selectByIdBuilder.String())
+	builder.WriteString(selectAllBuilder.String())
+	builder.WriteString(fmt.Sprintf(`<select id="CountAll">select count(*) from %s <where> %s </where></select>`, metadata.TableName, selectAllWhereBuilder.String()))
+	builder.WriteString(selectAllByMapBuilder.String())
+	builder.WriteString(fmt.Sprintf(`<select id="CountAllByMap">select count(*) from %s <where> %s </where></select>`, metadata.TableName, selectAllByMapWhereBuilder.String()))
+	builder.WriteString(updateByConditionBuilder.String())
+	builder.WriteString(updateByConditionMapBuilder.String())
+	builder.WriteString("</mapper>")
 
-	resultMap := make(map[string]string)
-	resultMap["InsertOne"] = insertOneBuilder.String()
-	resultMap["InsertBatch"] = insertBatchBuilder.String()
-	resultMap["UpdateById"] = updateByIdBuilder.String()
-	resultMap["UpdateSelectiveById"] = updateSelectiveByIdBuilder.String()
-	resultMap["DeleteById"] = deleteByIdBuilder.String()
-	resultMap["SelectById"] = selectByIdBuilder.String()
-	resultMap["SelectAll"] = selectAllBuilder.String()
-	resultMap["CountAll"] = fmt.Sprintf(`select count(*) from %s <where> %s </where>`, metadata.TableName, selectAllWhereBuilder.String())
-	resultMap["SelectAllByMap"] = selectAllByMapBuilder.String()
-	resultMap["CountAllByMap"] = fmt.Sprintf(`select count(*) from %s <where> %s </where>`, metadata.TableName, selectAllByMapWhereBuilder.String())
-	resultMap["UpdateByCondition"] = updateByConditionBuilder.String()
-	resultMap["UpdateByConditionMap"] = updateByConditionMapBuilder.String()
-
-	return resultMap, nil
+	return analyzer.ParseXml(metadata.Namespace, builder.String())
+	// return resultMap, nil
 }
-
 
 // 构造conditionMap
 func buildMapCondition(builder *strings.Builder, tag string) {

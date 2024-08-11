@@ -119,6 +119,22 @@ func (t *Analyzer) Parse() error {
 }
 
 // 编译多个自定义sql
+func ParseXml(namespace, xmlContent string) ([]*Function, error) {
+	parser := xml.NewParser(xmlContent)
+	root, err := parser.Parse()
+	if err != nil {
+		return nil, err
+	}
+	if err != nil {
+		return nil, err
+	}
+	functions := make([]*Function, 0)
+	for _, node := range root.Children {
+		functions = append(functions, generateFunction(namespace, node))
+	}
+	return functions, nil
+}
+
 // 用于将来的自动装配通用sql语句
 func ParseMultiSql(namespace string, sqls []string) ([]*Function, error) {
 	var builder strings.Builder

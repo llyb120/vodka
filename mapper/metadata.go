@@ -3,25 +3,29 @@ package mapper
 import (
 	"reflect"
 	"strings"
+	"vodka/analyzer"
 )
 
 type MetaData struct {
+	Namespace    string
 	TableName    string
 	PKNames      map[string]byte
-	CustomSqlMap map[string]string
+	Functions    []*analyzer.Function
+	// CustomSqlMap map[string]string
 	// Fields    []reflect.StructField
 	// Tags      []string
 }
 
-func NewMetaData(mapperValue reflect.Value) *MetaData {
+func NewMetaData(namespace string, mapperValue reflect.Value) *MetaData {
 	metadataField, ok := mapperValue.Elem().Type().FieldByName("_")
 	if !ok {
 		return nil
 	}
 	metadata := &MetaData{
+		Namespace:    namespace,
 		TableName:    "",
 		PKNames:      make(map[string]byte),
-		CustomSqlMap: make(map[string]string),
+		Functions:    make([]*analyzer.Function, 0),
 	}
 	tableName := metadataField.Tag.Get("table")
 	if tableName == "" {
@@ -46,8 +50,8 @@ func NewMetaData(mapperValue reflect.Value) *MetaData {
 		})
 		err, ok := ret[1].Interface().(error)
 		if !(ok && err != nil) {
-			if customSqlMap, ok := ret[0].Interface().(map[string]string); ok {
-				metadata.CustomSqlMap = customSqlMap
+			if functions, ok := ret[0].Interface().([]*analyzer.Function); ok {
+				metadata.Functions = functions
 			}
 		}
 	}
