@@ -10,10 +10,10 @@ Vodka是Go的一个轻量级的半自动化ORM框架，灵感来自MyBatis。
 - 天生防注入
 - SQL和代码分离，方便管理
 - 支持用于复杂查询的动态SQL
+- 对基础查询语句直接自动装配，无需再书写xml文件
 - 支持缓存 (开发中)
 - 支持插件 (开发中)
 - 支持定义切面，插入自己的权限语句（开发中）
-- 对基础查询语句直接自动装配，无需再书写xml文件（开发中）
 
 ## 快速上手
 
@@ -127,6 +127,35 @@ userMapper.Delete(1)
 - delete：定义删除语句
 - where：定义查询条件，使用该标签，可直接使用and进行条件拼装，无需判断在第一个条件上不使用and
 - if：定义表达式判断，符合test的表达式才会生效
+
+### 通用Mapper
+- 直接继承mapper.VodkaMapper，即可拥有通用Mapper的所有功能
+- 以下基础语句会自动装配，无需再书写xml文件
+```go
+type VodkaMapper[T any, ID any] struct {
+	InsertOne      func(params *T) (int64, int64, error)             `params:"params"`
+	InsertBatch    func(params []*T) (int64, int64, error)           `params:"params"`
+	UpdateById     func(params *T) (int64, error)                    `params:"params"`
+	DeleteById     func(id ID) (int64, error)                        `params:"id"`
+	SelectById     func(id ID) (*T, error)                           `params:"id"`
+	SelectAll      func(params *T) ([]*T, error)                     `params:"params"`
+	SelectAllByMap func(params map[string]interface{}) ([]*T, error) `params:"params"`
+}
+
+// 示例
+type UserMapper struct {
+    mapper.VodkaMapper[User, int64]
+    // 需要额外书写表名和主键定义
+    _ any `table:"user" pk:"id"`
+}
+
+//test
+var userMapper UserMapper
+vodka.InitMapper(&userMapper)
+
+userMapper.InsertOne(&User{Name:"张三"})
+```
+
 
 
 ### 其余说明
