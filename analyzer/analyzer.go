@@ -342,7 +342,7 @@ func handleText(builder *strings.Builder, node *xml.Node, params map[string]inte
 			// 特殊情况，如果key为$AUTO，则自动生成id
 			value := getValueByBlock(match, params)
 			if value == "$AUTO" {
-				return "DEFAULT";
+				return "DEFAULT"
 			}
 			*resultParams = append(*resultParams, value)
 			return "?"
@@ -355,15 +355,17 @@ func handleText(builder *strings.Builder, node *xml.Node, params map[string]inte
 // 根据key获取值
 // 处理 #{abc.xxx} 格式的内容
 // todo: 处理 ${abc.xxx} 格式的内容 即不处理内容直接输出
-func getValueByBlock(key string, params map[string]interface{}) string {
+func getValueByBlock(key string, params map[string]interface{}) any {
 	key = strings.Trim(key, "#{}")
 	// 处理三元表达式的情况
 	if strings.Contains(key, "?") {
 		value := runner.EvaluateExpression(key, params)
-		return fmt.Sprintf("%v", value)
+		return value
+		//return fmt.Sprintf("%v", value)
 	} else {
 		value := runner.GetValue(key, params)
-		return fmt.Sprintf("%v", value)
+		return value
+		//return fmt.Sprintf("%v", value)
 	}
 }
 

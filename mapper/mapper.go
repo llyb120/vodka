@@ -9,12 +9,14 @@ import (
 )
 
 var mappers map[string]*Mapper
+
 //= make(map[string]*Mapper)
 // var mappersLock = sync.RWMutex{}
 
 // 缓存，不用每次都重新绑定
 var mapperCache map[string]interface{}
-//= make(map[string]interface{})
+
+// = make(map[string]interface{})
 var mapperCacheLock = sync.RWMutex{}
 
 // initmapper的锁
@@ -32,7 +34,6 @@ type MapperItem struct {
 	MethodId string
 }
 
-
 func InitMappers(analyzers []*analyzer.Analyzer) error {
 	mutex.Lock()
 	defer mutex.Unlock()
@@ -49,7 +50,7 @@ func InitMappers(analyzers []*analyzer.Analyzer) error {
 func initMapper(analyzer *analyzer.Analyzer) {
 	mapper, ok := mappers[analyzer.Namespace]
 	if !ok {
-		mapper = newMapper(analyzer.Namespace)		
+		mapper = newMapper(analyzer.Namespace)
 		mappers[analyzer.Namespace] = mapper
 	}
 	for _, function := range analyzer.Functions {
@@ -73,7 +74,7 @@ func BindMapper(source interface{}) error {
 	mapperType := v.Type()
 	// 查找命名空间，为每个方法生成一个函数
 	namespace := mapperType.Name()
-	
+
 	// 优先查找缓存中是否有，如果有，直接设置指针内容（必定是相同的）
 	mapperCacheLock.RLock()
 	existMapper, ok := mapperCache[namespace]
@@ -107,134 +108,174 @@ func BindMapper(source interface{}) error {
 
 // 为其生成方法
 func bindMapper(source interface{}, mapper *Mapper, mapperValue reflect.Value, mapperType reflect.Type, v reflect.Value) error {
+	// 获得metadata
+	metaData := NewMetaData(mapperValue)
+	// 如果有 BuildTags 方法，直接调用
+	// var customSqlMap map[string]string
+	// customSqlMap := make(map[string]string)
+
 	for i := 0; i < mapperType.NumField(); i++ {
 		field := mapperType.Field(i)
-		fieldType := field.Type
 
-		// 如果是一个方法
-		if fieldType.Kind() != reflect.Func {
-			continue
-		}
-
-		paramNames := getParamNames(field)
-
-		// 找到目标方法
-		// 优先使用 XML 标签，如果没有则使用字段名
-		methodName := field.Tag.Get("xml")
-		if methodName == "" {
-			methodName = field.Name
-		}
-		if _, ok := mapper.FunctionMap[methodName]; !ok {
-			// 检查是否有sql的tag
-			sqlTag := field.Tag.Get("sql")
-			if sqlTag == "" {
-				continue
+		if field.Name == "VodkaMapper" {
+			// 循环父类的字段
+			vodkaMapperType := field.Type
+			for j := 0; j < vodkaMapperType.NumField(); j++ {
+				vodkaField := vodkaMapperType.Field(j)
+				err := generateFunctionBody(mapper, v.Field(i), metaData, vodkaField)
+				if err != nil {
+					return err
+				}
 			}
-			// 生成一个sql的函数
-			function, err := analyzer.ParseSingleSql(mapper.NameSpace, sqlTag)
+			// log.Println("ok")
+		} else {
+			err := generateFunctionBody(mapper, v, metaData, field)
 			if err != nil {
 				return err
 			}
-			mapper.FunctionMap[methodName] = function
-			// 暂时先不返回错误
-			// 暂时先不返回错误
-			//return errors.New("BindMapper: 无法找到方法 " + field.Name)
 		}
 
-		// 创建函数
-		fn := reflect.MakeFunc(fieldType, func(args []reflect.Value) (results []reflect.Value) {
-			// 这里是函数体的实现
-			// 整理参数
-			params := make(map[string]interface{})
-			for i, arg := range args {
-				if paramNames != nil && len(paramNames) > i {
-					params[paramNames[i]] = arg.Interface()
-				}
-			}
-
-			// 准备结果容器
-			// 根据返回值类型创建一个零值
-			var result interface{}
-			var resultWrappers []interface{}
-			var returns []reflect.Value
-			var errIndexes []int
-			for i := 0; i < fieldType.NumOut(); i++ {
-				resultType := fieldType.Out(i)
-				// 如果需要返回一个列表
-				if resultType.Kind() == reflect.Slice {
-					result = reflect.New(resultType).Interface()
-					resultWrappers = append(resultWrappers, result)
-					// returns = append(returns, reflect.ValueOf(result))
-				} else if resultType == reflect.TypeOf((*error)(nil)).Elem() {
-					errIndexes = append(errIndexes, i)
-					resultWrappers = append(resultWrappers, nil)
-					// if err != nil {
-					// 	returns = append(returns, reflect.ValueOf(err))
-					// } else {
-					// 	returns = append(returns, reflect.Zero(resultType))
-					// }
-				} else if resultType == reflect.TypeOf((*int64)(nil)).Elem() {
-					result = new(int64)
-					resultWrappers = append(resultWrappers, result)
-				} else {
-					// 如果是结构体的话，为了成功返回nil，这里必须产生一个指针的指针，即**Struct
-					//result = reflect.New(resultType).Interface()
-					// 必须先产生指针内容
-					value := reflect.New(resultType.Elem())
-					valuePtr := reflect.New(resultType)
-					valuePtr.Elem().Set(value)
-					result = valuePtr.Interface()
-					resultWrappers = append(resultWrappers, result)
-					// if result != nil {
-					// 	returns = append(returns, reflect.ValueOf(result))
-					// } else {
-					// 	returns = append(returns, reflect.Zero(resultType))
-					// }
-				}
-			}
-
-			err := analyzer.CallFunction(mapper.FunctionMap[methodName], params, resultWrappers)
-			if err != nil {
-				// 指定的替换为错误
-				for _, index := range errIndexes {
-					resultWrappers[index] = err
-				}
-			}
-			// 将resultWrappers转换为returns
-			for i, wrapper := range resultWrappers {
-				if wrapper == nil {
-					// 如果是error类型且为nil,返回零值
-					// if fieldType.Out(i).Implements(reflect.TypeOf((*error)(nil)).Elem()) {
-					returns = append(returns, reflect.Zero(fieldType.Out(i)))
-					// } else {
-					// returns = append(returns, reflect.Zero(fieldType.Out(i)))
-					// }
-				} else {
-					// 对于其他类型,直接返回wrapper的值
-					wrapperValue := reflect.ValueOf(wrapper)
-					if fieldType.Out(i).Kind() == reflect.Interface && fieldType.Out(i).Implements(reflect.TypeOf((*error)(nil)).Elem()) {
-						// 对于error接口类型，直接使用原始的error值
-						returns = append(returns, wrapperValue)
-					} else if wrapperValue.Elem().Kind() == reflect.Slice {
-						// 对于切片类型，直接返回
-						returns = append(returns, wrapperValue.Elem())
-					} else {
-						// 对于其他类型，返回Elem()
-						returns = append(returns, wrapperValue.Elem())
-					}
-					// returns = append(returns, reflect.ValueOf(wrapper).Elem())
-				}
-			}
-
-			// 如果有错误,将错误设置为最后一个返回值
-			// if err != nil {
-			// 	returns[len(returns)-1] = reflect.ValueOf(err)
-			// }
-			return returns
-		})
-
-		v.FieldByName(field.Name).Set(fn)
 	}
+
+	return nil
+}
+
+func generateFunctionBody(mapper *Mapper, v reflect.Value, metaData *MetaData, field reflect.StructField) error {
+	fieldType := field.Type
+
+	// 如果是一个方法
+	if field.Type.Kind() != reflect.Func {
+		return nil
+	}
+
+	// 如果已经有实现了，则continue
+	if !v.FieldByName(field.Name).IsNil() {
+		return nil
+	}
+
+	paramNames := getParamNames(field)
+
+	// 找到目标方法
+	// 优先使用 XML 标签，如果没有则使用字段名
+	methodName := field.Tag.Get("xml")
+	if methodName == "" {
+		methodName = field.Name
+	}
+	if _, ok := mapper.FunctionMap[methodName]; !ok {
+		var sqlTag string
+		if metaData == nil {
+			sqlTag = field.Tag.Get("sql")
+		} else if sqlTag, ok = metaData.CustomSqlMap[methodName]; !ok {
+			sqlTag = field.Tag.Get("sql")
+		}
+		// 检查是否有sql的tag
+		if sqlTag == "" {
+			return nil
+		}
+		// 生成一个sql的函数
+		function, err := analyzer.ParseSingleSql(mapper.NameSpace, sqlTag)
+		if err != nil {
+			return err
+		}
+		mapper.FunctionMap[methodName] = function
+		// 暂时先不返回错误
+		// 暂时先不返回错误
+		//return errors.New("BindMapper: 无法找到方法 " + field.Name)
+	}
+
+	// 创建函数
+	fn := reflect.MakeFunc(fieldType, func(args []reflect.Value) (results []reflect.Value) {
+		// 这里是函数体的实现
+		// 整理参数
+		params := make(map[string]interface{})
+		for i, arg := range args {
+			if paramNames != nil && len(paramNames) > i {
+				params[paramNames[i]] = arg.Interface()
+			}
+		}
+
+		// 准备结果容器
+		// 根据返回值类型创建一个零值
+		var result interface{}
+		var resultWrappers []interface{}
+		var returns []reflect.Value
+		var errIndexes []int
+		for i := 0; i < fieldType.NumOut(); i++ {
+			resultType := fieldType.Out(i)
+			// 如果需要返回一个列表
+			if resultType.Kind() == reflect.Slice {
+				result = reflect.New(resultType).Interface()
+				resultWrappers = append(resultWrappers, result)
+				// returns = append(returns, reflect.ValueOf(result))
+			} else if resultType == reflect.TypeOf((*error)(nil)).Elem() {
+				errIndexes = append(errIndexes, i)
+				resultWrappers = append(resultWrappers, nil)
+				// if err != nil {
+				// 	returns = append(returns, reflect.ValueOf(err))
+				// } else {
+				// 	returns = append(returns, reflect.Zero(resultType))
+				// }
+			} else if resultType == reflect.TypeOf((*int64)(nil)).Elem() {
+				result = new(int64)
+				resultWrappers = append(resultWrappers, result)
+			} else {
+				// 如果是结构体的话，为了成功返回nil，这里必须产生一个指针的指针，即**Struct
+				//result = reflect.New(resultType).Interface()
+				// 必须先产生指针内容
+				value := reflect.New(resultType.Elem())
+				valuePtr := reflect.New(resultType)
+				valuePtr.Elem().Set(value)
+				result = valuePtr.Interface()
+				resultWrappers = append(resultWrappers, result)
+				// if result != nil {
+				// 	returns = append(returns, reflect.ValueOf(result))
+				// } else {
+				// 	returns = append(returns, reflect.Zero(resultType))
+				// }
+			}
+		}
+
+		err := analyzer.CallFunction(mapper.FunctionMap[methodName], params, resultWrappers)
+		if err != nil {
+			// 指定的替换为错误
+			for _, index := range errIndexes {
+				resultWrappers[index] = err
+			}
+		}
+		// 将resultWrappers转换为returns
+		for i, wrapper := range resultWrappers {
+			if wrapper == nil {
+				// 如果是error类型且为nil,返回零值
+				// if fieldType.Out(i).Implements(reflect.TypeOf((*error)(nil)).Elem()) {
+				returns = append(returns, reflect.Zero(fieldType.Out(i)))
+				// } else {
+				// returns = append(returns, reflect.Zero(fieldType.Out(i)))
+				// }
+			} else {
+				// 对于其他类型,直接返回wrapper的值
+				wrapperValue := reflect.ValueOf(wrapper)
+				if fieldType.Out(i).Kind() == reflect.Interface && fieldType.Out(i).Implements(reflect.TypeOf((*error)(nil)).Elem()) {
+					// 对于error接口类型，直接使用原始的error值
+					returns = append(returns, wrapperValue)
+				} else if wrapperValue.Elem().Kind() == reflect.Slice {
+					// 对于切片类型，直接返回
+					returns = append(returns, wrapperValue.Elem())
+				} else {
+					// 对于其他类型，返回Elem()
+					returns = append(returns, wrapperValue.Elem())
+				}
+				// returns = append(returns, reflect.ValueOf(wrapper).Elem())
+			}
+		}
+
+		// 如果有错误,将错误设置为最后一个返回值
+		// if err != nil {
+		// 	returns[len(returns)-1] = reflect.ValueOf(err)
+		// }
+		return returns
+	})
+
+	v.FieldByName(field.Name).Set(fn)
 
 	return nil
 }
@@ -248,11 +289,10 @@ func getParamNames(field reflect.StructField) []string {
 	return strings.Split(tag, ",")
 }
 
-
-func newMapper(namespace string) *Mapper{
+func newMapper(namespace string) *Mapper {
 	return &Mapper{
 		// MapperItemsMap: make(map[string]*MapperItem),
 		FunctionMap: make(map[string]*analyzer.Function),
-		NameSpace: namespace,
+		NameSpace:   namespace,
 	}
 }
