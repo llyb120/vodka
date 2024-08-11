@@ -175,7 +175,7 @@ func generateFunction(mapperName string, node *xml.Node) *Function {
 		}
 		log.Printf("【%s】【%s】 sql : %s %v", mapperName, node.Attrs["id"], builder.String(), invokeParams)
 		// 如果是查询语句
-		if strings.ToUpper(node.Name) == "SELECT" {
+		if node.Name == "SELECT" {
 			resultErr = database.QueryStruct(mysqld.GetDB(), builder.String(), invokeParams, resultWrappers)
 		} else {
 			resultErr = database.ExecuteInt64(mysqld.GetDB(), builder.String(), invokeParams, resultWrappers)
@@ -197,12 +197,14 @@ func handleNode(builder *strings.Builder, node *xml.Node, params map[string]inte
 		handleText(builder, node, params, resultParams)
 	} else {
 		switch node.Name {
-		case "if":
+		case "IF":
 			handleIfStatement(builder, node, params, resultParams)
-		case "foreach":
+		case "FOREACH":
 			handleForeachStatement(builder, node, params, resultParams)
-		case "where":
+		case "WHERE":
 			handleWhereStatement(builder, node, params, resultParams)
+		case "SET":
+			handleSetStatement(builder, node, params, resultParams)
 		}
 	}
 }
@@ -320,6 +322,21 @@ func handleWhereStatement(builder *strings.Builder, node *xml.Node, params map[s
 	}
 
 	builder.WriteString(strings.TrimSpace(sqlBuilder.String()))
+}
+
+func handleSetStatement(builder *strings.Builder, node *xml.Node, params map[string]any, resultParams *[]any) {
+	builder.WriteString(" set ")
+	var childBuilder strings.Builder
+	// 移除末尾的逗号
+	for _, child := range node.Children {
+		handleNode(&childBuilder, child, params, resultParams)
+	}
+	childSQL := strings.TrimSpace(childBuilder.String())
+	if strings.HasSuffix(childSQL, ",") {
+		childSQL = childSQL[:len(childSQL)-1]
+	}
+	builder.WriteString(childSQL)
+	builder.WriteString(" ")
 }
 
 // 处理文本节点

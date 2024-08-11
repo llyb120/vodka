@@ -45,7 +45,7 @@ func EvaluateExpression(expr string, params map[string]interface{}) interface{} 
 	// 语法分析和规约
 	ast := syntaxAnalysis(tokens)
 
-	printAST(ast)
+	//printAST(ast)
 
 	// 计算表达式
 	val := evaluateAST(ast, params)
@@ -131,6 +131,12 @@ func lexicalAnalysis(expr string) []Token {
 			}
 			if i+1 < len(expr) && isCompoundOperator(char, expr[i+1]) {
 				tokens = append(tokens, Token{Type: Operator, Value: string(char) + string(expr[i+1])})
+				i++
+			} else if i+1 < len(expr) && (char == '&' && expr[i+1] == '&') {
+				tokens = append(tokens, Token{Type: Operator, Value: "&&"})
+				i++
+			} else if i+1 < len(expr) && (char == '|' && expr[i+1] == '|') {
+				tokens = append(tokens, Token{Type: Operator, Value: "||"})
 				i++
 			} else {
 				tokens = append(tokens, Token{Type: Operator, Value: string(char)})

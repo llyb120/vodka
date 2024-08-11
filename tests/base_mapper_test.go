@@ -14,13 +14,14 @@ type DepMapper struct {
 }
 
 type Dep struct {
-	Id   int64  `vo:"id"`
-	Name string `vo:"name"`
+	Id    int64  `vo:"id"`
+	Name  string `vo:"name"`
+	Descr string `vo:"descr"`
 }
 
 func TestBaseMapper(t *testing.T) {
 
-	t.Run("TestBaseMapper", func(t *testing.T) {
+	t.Run("测试通用Mapper", func(t *testing.T) {
 		baseMapperPrepare(t)
 		//var dep Dep
 		//result, err := dep.BuildTags()
@@ -32,11 +33,24 @@ func TestBaseMapper(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		//depMapper.InsertOne(&Dep{Name: "heihei"})
-		depMapper.InsertBatch([]*Dep{
+		rows, _, err := depMapper.InsertOne(&Dep{Name: "heihei"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if rows < 0 {
+			t.Fatal("insert failed")
+		}
+		rows, _, err = depMapper.InsertBatch([]*Dep{
 			{Name: "dep1"},
 			{Name: "dep2"},
 		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if rows < 0 {
+			t.Fatal("insert failed")
+		}
+		depMapper.UpdateSelectiveById(&Dep{Id: 1, Name: "dep111"})
 
 		fmt.Println(depMapper)
 	})

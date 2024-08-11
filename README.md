@@ -46,6 +46,35 @@ type UserMapper struct {
 }
 ```
 
+
+### 通用Mapper
+- 直接继承mapper.VodkaMapper，即可拥有通用Mapper的所有功能
+- 以下基础语句会自动装配，无需再书写xml文件
+```go
+type VodkaMapper[T any, ID any] struct {
+	InsertOne      func(params *T) (int64, int64, error)             `params:"params"`
+	InsertBatch    func(params []*T) (int64, int64, error)           `params:"params"`
+	UpdateById     func(params *T) (int64, error)                    `params:"params"`
+	DeleteById     func(id ID) (int64, error)                        `params:"id"`
+	SelectById     func(id ID) (*T, error)                           `params:"id"`
+	SelectAll      func(params *T) ([]*T, error)                     `params:"params"`
+	SelectAllByMap func(params map[string]interface{}) ([]*T, error) `params:"params"`
+}
+
+// 示例
+type UserMapper struct {
+    mapper.VodkaMapper[User, int64]
+    // 需要额外书写表名和主键定义
+    _ any `table:"user" pk:"id"`
+}
+
+//test
+var userMapper UserMapper
+vodka.InitMapper(&userMapper)
+
+userMapper.InsertOne(&User{Name:"张三"})
+```
+
 ### 定义你的xml映射文件
 - 可直接使用mybatis的工具生成，无需繁琐的书写步骤
 - 针对复杂查询，在xml中和原生sql书写并无二至，只需要附加你的条件即可
@@ -128,33 +157,6 @@ userMapper.Delete(1)
 - where：定义查询条件，使用该标签，可直接使用and进行条件拼装，无需判断在第一个条件上不使用and
 - if：定义表达式判断，符合test的表达式才会生效
 
-### 通用Mapper
-- 直接继承mapper.VodkaMapper，即可拥有通用Mapper的所有功能
-- 以下基础语句会自动装配，无需再书写xml文件
-```go
-type VodkaMapper[T any, ID any] struct {
-	InsertOne      func(params *T) (int64, int64, error)             `params:"params"`
-	InsertBatch    func(params []*T) (int64, int64, error)           `params:"params"`
-	UpdateById     func(params *T) (int64, error)                    `params:"params"`
-	DeleteById     func(id ID) (int64, error)                        `params:"id"`
-	SelectById     func(id ID) (*T, error)                           `params:"id"`
-	SelectAll      func(params *T) ([]*T, error)                     `params:"params"`
-	SelectAllByMap func(params map[string]interface{}) ([]*T, error) `params:"params"`
-}
-
-// 示例
-type UserMapper struct {
-    mapper.VodkaMapper[User, int64]
-    // 需要额外书写表名和主键定义
-    _ any `table:"user" pk:"id"`
-}
-
-//test
-var userMapper UserMapper
-vodka.InitMapper(&userMapper)
-
-userMapper.InsertOne(&User{Name:"张三"})
-```
 
 
 

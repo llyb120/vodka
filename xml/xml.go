@@ -84,7 +84,7 @@ LOOP:
 					// token必须和栈顶元素的name相同
 					if len(stack) > 0 {
 						pNode := stack[len(stack)-1]
-						if pNode.Name != token {
+						if pNode.Name != strings.ToUpper(token) {
 							return nil, errors.New("标签不匹配")
 						}
 						// 弹出栈顶元素
@@ -101,7 +101,7 @@ LOOP:
 				} else {
 					// 如果不是空格，则开始进入标签
 					token := p.readUntil(' ', '\t', '>')
-					node := &Node{Type: Tag, Name: token, Attrs: make(map[string]string), Children: make([]*Node, 0)}
+					node := &Node{Type: Tag, Name: strings.ToUpper(token), Attrs: make(map[string]string), Children: make([]*Node, 0)}
 					p.readAttributes(node)
 					// 跳过结束标签
 					p.next()

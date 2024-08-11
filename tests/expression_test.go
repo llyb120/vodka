@@ -90,6 +90,12 @@ func TestEvaluateExpression(t *testing.T) {
 			params:   map[string]interface{}{"a": 1},
 			expected: int64(2),
 		},
+		{
+			name:     "多元判断",
+			expr:     "a != 0 && a != '' && a != null",
+			params:   map[string]interface{}{"a": ""},
+			expected: false,
+		},
 
 		// 可以添加更多测试用例
 	}

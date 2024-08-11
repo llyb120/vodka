@@ -2,19 +2,21 @@ package mapper
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"reflect"
 	"strings"
 )
 
 type VodkaMapper[T any, ID any] struct {
-	InsertOne      func(params *T) (int64, int64, error)             `params:"params"`
-	InsertBatch    func(params []*T) (int64, int64, error)           `params:"params"`
-	UpdateById     func(params *T) (int64, error)                    `params:"params"`
-	DeleteById     func(id ID) (int64, error)                        `params:"id"`
-	SelectById     func(id ID) (*T, error)                           `params:"id"`
-	SelectAll      func(params *T) ([]*T, error)                     `params:"params"`
-	SelectAllByMap func(params map[string]interface{}) ([]*T, error) `params:"params"`
+	InsertOne           func(params *T) (int64, int64, error)             `params:"params"`
+	InsertBatch         func(params []*T) (int64, int64, error)           `params:"params"`
+	UpdateById          func(params *T) (int64, error)                    `params:"params"`
+	UpdateSelectiveById func(params *T) (int64, error)                    `params:"params"`
+	DeleteById          func(id ID) (int64, error)                        `params:"id"`
+	SelectById          func(id ID) (*T, error)                           `params:"id"`
+	SelectAll           func(params *T) ([]*T, error)                     `params:"params"`
+	SelectAllByMap      func(params map[string]interface{}) ([]*T, error) `params:"params"`
 }
 
 type Tag struct {
@@ -85,13 +87,19 @@ func (m *VodkaMapper[T, ID]) BuildTags(metadata *MetaData) (map[string]string, e
 	var insertBatchBuilder strings.Builder
 	insertBatchBuilder.WriteString("insert into " + metadata.TableName + " (")
 	var updateByIdBuilder strings.Builder
-	updateByIdBuilder.WriteString("update " + metadata.TableName + " set ")
+	updateByIdBuilder.WriteString("update " + metadata.TableName + " <set>")
+	var updateSelectiveByIdBuilder strings.Builder
+	updateSelectiveByIdBuilder.WriteString("update " + metadata.TableName + " <set>")
 	var deleteByIdBuilder strings.Builder
 	deleteByIdBuilder.WriteString("delete from " + metadata.TableName + " <where> ")
-	//var selectByIdBuilder strings.Builder
+	var selectByIdBuilder strings.Builder
+	selectByIdBuilder.WriteString("select * from " + metadata.TableName + " <where> ")
 	//var selectAllBuilder strings.Builder
 	//var selectAllByMapBuilder strings.Builder
 
+	// 处理字段
+	isNumberTypeArr := make([]bool, len(fields))
+	isStringTypeArr := make([]bool, len(fields))
 	for i := 0; i < len(fields); i++ {
 		// fieldType := field.Type
 		// fieldTag := field.Tag
@@ -99,11 +107,22 @@ func (m *VodkaMapper[T, ID]) BuildTags(metadata *MetaData) (map[string]string, e
 		// 只处理有tag的
 		insertOneBuilder.WriteString(tags[i])
 		insertBatchBuilder.WriteString(tags[i])
+		isNumberType := fields[i].Type.Kind() == reflect.Int || fields[i].Type.Kind() == reflect.Int64 || fields[i].Type.Kind() == reflect.Float64
+		isNumberTypeArr[i] = isNumberType
+		isStringType := fields[i].Type.Kind() == reflect.String
+		isStringTypeArr[i] = isStringType
 		// 如果是主键
 		if _, ok := metadata.PKNames[tags[i]]; ok {
 			// updateByIdBuilder.WriteString(tags[i] + " = #{" + tags[i] + "}")
+			selectByIdBuilder.WriteString(" and " + tags[i] + " = #{" + tags[i] + "}")
 		} else {
 			updateByIdBuilder.WriteString(tags[i] + " = #{" + tags[i] + "}")
+			// 处理selective的类型，如果是int int64 float64 这些，不能判断==null
+			updateSelectiveByIdBuilder.WriteString(fmt.Sprintf(`<if test="%s != 0 && %s != null && %s != ''">%s = #{%s},</if>`, tags[i], tags[i], tags[i], tags[i], tags[i]))
+			// if isNumberType {
+			// } else if(is{
+			// 	updateSelectiveByIdBuilder.WriteString(fmt.Sprintf(`<if test="%s != null">%s = #{%s},</if>`, tags[i], tags[i], tags[i]))
+			// }
 			deleteByIdBuilder.WriteString(" and " + tags[i] + " = #{" + tags[i] + "}")
 			if i != len(fields)-1 {
 				updateByIdBuilder.WriteString(",")
@@ -116,13 +135,16 @@ func (m *VodkaMapper[T, ID]) BuildTags(metadata *MetaData) (map[string]string, e
 	}
 	insertOneBuilder.WriteString(") values (")
 	insertBatchBuilder.WriteString(") values <foreach collection='params' item='item' separator=','>(")
-	updateByIdBuilder.WriteString("<where>")
+	updateByIdBuilder.WriteString("</set> <where>")
+	updateSelectiveByIdBuilder.WriteString("</set> <where>")
+	// 处理值
 	for i := 0; i < len(fields); i++ {
 		// 如果是主键
 		if _, ok := metadata.PKNames[tags[i]]; ok && (fields[i].Type.Kind() == reflect.Int64) {
 			insertOneBuilder.WriteString("#{" + tags[i] + " == 0 ? $AUTO : " + tags[i] + "}")
 			insertBatchBuilder.WriteString("#{item." + tags[i] + " == 0 ? $AUTO : item." + tags[i] + "}")
 			updateByIdBuilder.WriteString(" and " + tags[i] + " = #{" + tags[i] + "}")
+			updateSelectiveByIdBuilder.WriteString(fmt.Sprintf(" and %s = #{%s}", tags[i], tags[i]))
 		} else {
 			insertOneBuilder.WriteString("#{" + tags[i] + "}")
 			insertBatchBuilder.WriteString("#{item." + tags[i] + "}")
@@ -135,12 +157,15 @@ func (m *VodkaMapper[T, ID]) BuildTags(metadata *MetaData) (map[string]string, e
 	insertOneBuilder.WriteString(")")
 	insertBatchBuilder.WriteString(")</foreach>")
 	updateByIdBuilder.WriteString("</where>")
+	updateSelectiveByIdBuilder.WriteString("</where>")
 	deleteByIdBuilder.WriteString("</where>")
+	selectByIdBuilder.WriteString("</where>")
 
 	resultMap := make(map[string]string)
 	resultMap["InsertOne"] = insertOneBuilder.String()
 	resultMap["InsertBatch"] = insertBatchBuilder.String()
 	resultMap["UpdateById"] = updateByIdBuilder.String()
+	resultMap["UpdateSelectiveById"] = updateSelectiveByIdBuilder.String()
 	resultMap["DeleteById"] = deleteByIdBuilder.String()
 
 	return resultMap, nil
