@@ -15,6 +15,7 @@ Vodka是Go的一个轻量级的半自动化ORM框架，灵感来自MyBatis。
 - 支持插件 (开发中)
 - 支持定义切面，插入自己的权限语句（开发中）
 
+
 ## 快速上手
 
 ### 定义你的model
@@ -25,27 +26,6 @@ type User struct {
     Age  int    `vo:"age"`
 }
 ```
-
-### 定义你的mapper接口 (无需实现，vodka会自动装配这些方法)
-```go
-type UserMapper struct {
-    // 基础查询
-    Select(params interface{}) ([]*User, error) `param:"params"` //params为在xml中映射的名字
-    // 部分无需xml的情况，可以直接通过tag自定义sql
-    SelectByCustomSql(params interface{}) ([]*User, error) `param:"params" sql:"select * from user where id = #{id}"`
-    // 插入
-    // insert语句最多支持3个返回值，分别为影响的行数、自增主键、错误
-    Insert(user *User) (int64, int64, error) `param:"user"`
-    InsertBatch(users []*User) (int64, error) `param:"users"`
-    // 更新
-    // 更新语句最多支持2个返回值，分别为影响的行数、错误
-    Update(user *User) (int64, error) `param:"user"`
-    // 删除
-    // 删除语句最多支持2个返回值，分别为影响的行数、错误
-    Delete(id int) (int64, error) `param:"id"`
-}
-```
-
 
 ### 通用Mapper
 - 直接继承mapper.VodkaMapper，即可拥有通用Mapper的所有功能
@@ -80,9 +60,31 @@ vodka.InitMapper(&userMapper)
 userMapper.InsertOne(&User{Name:"张三"})
 ```
 
+## 进阶用法
+
+### 定义你的mapper接口 (无需实现，vodka会自动装配这些方法)
+```go
+type UserMapper struct {
+    // 基础查询
+    Select(params interface{}) ([]*User, error) `param:"params"` //params为在xml中映射的名字
+    // 部分无需xml的情况，可以直接通过tag自定义sql
+    SelectByCustomSql(params interface{}) ([]*User, error) `param:"params" sql:"select * from user where id = #{id}"`
+    // 插入
+    // insert语句最多支持3个返回值，分别为影响的行数、自增主键、错误
+    Insert(user *User) (int64, int64, error) `param:"user"`
+    InsertBatch(users []*User) (int64, error) `param:"users"`
+    // 更新
+    // 更新语句最多支持2个返回值，分别为影响的行数、错误
+    Update(user *User) (int64, error) `param:"user"`
+    // 删除
+    // 删除语句最多支持2个返回值，分别为影响的行数、错误
+    Delete(id int) (int64, error) `param:"id"`
+}
+```
+
 ### 定义你的xml映射文件
 - 可直接使用mybatis的工具生成，无需繁琐的书写步骤
-- 针对复杂查询，在xml中和原生sql书写并无二至，只需要附加你的条件即可
+- 针对复杂查询，在xml中和原生sql书写并无二致，只需要附加你的条件即可
 ```xml
 <mapper namespace="UserMapper">
     <!-- 复杂查询 -->
@@ -162,7 +164,6 @@ userMapper.Delete(1)
 - where：定义查询条件，使用该标签，可直接使用and进行条件拼装，无需判断在第一个条件上不使用and
 - if：定义表达式判断，符合test的表达式才会生效
 - set: 定义更新语句中的set部分，使用该标签，可直接在每条语句后拼装逗号，无需检查最后一个是否拼装
-
 
 
 
