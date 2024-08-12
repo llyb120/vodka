@@ -226,12 +226,16 @@ func (m *VodkaMapper[T, ID]) BuildTags(metadata *MetaData) ([]*analyzer.Function
 // 构造conditionMap
 func buildMapCondition(builder *strings.Builder, tag string) {
 	builder.WriteString(fmt.Sprintf(` <if test="EQ_%s != null && EQ_%s != '' && EQ_%s != 0"> and %s = #{%s} </if>`, tag, tag, tag, tag, tag))
+	builder.WriteString(fmt.Sprintf(` <if test="NE_%s != null && NE_%s != '' && NE_%s != 0"> and %s != #{%s} </if>`, tag, tag, tag, tag, tag))
 	builder.WriteString(fmt.Sprintf(` <if test="GT_%s != null && GT_%s != '' && GT_%s != 0"> and %s > #{%s} </if>`, tag, tag, tag, tag, tag))
 	builder.WriteString(fmt.Sprintf(` <if test="LT_%s != null && LT_%s != '' && LT_%s != 0"> and %s < #{%s} </if>`, tag, tag, tag, tag, tag))
 	builder.WriteString(fmt.Sprintf(` <if test="GTE_%s != null && GTE_%s != '' && GTE_%s != 0"> and %s >= #{%s} </if>`, tag, tag, tag, tag, tag))
 	builder.WriteString(fmt.Sprintf(` <if test="LTE_%s != null && LTE_%s != '' && LTE_%s != 0"> and %s <= #{%s} </if>`, tag, tag, tag, tag, tag))
 	builder.WriteString(fmt.Sprintf(` <if test="LIKE_%s != null && LIKE_%s != '' && LIKE_%s != 0"> and %s like concat('%%',#{%s},'%%') </if>`, tag, tag, tag, tag, tag))
 	builder.WriteString(fmt.Sprintf(` <if test="IN_%s != null && IN_%s != '' && IN_%s != 0"> and %s in <foreach collection='%s' item='item' separator=',' open='(' close=')'>#{item}</foreach> </if>`, tag, tag, tag, tag, tag))
+	builder.WriteString(fmt.Sprintf(` <if test="NOT_IN_%s != null && NOT_IN_%s != '' && NOT_IN_%s != 0"> and %s not in <foreach collection='%s' item='item' separator=',' open='(' close=')'>#{item}</foreach> </if>`, tag, tag, tag, tag, tag))
+	builder.WriteString(fmt.Sprintf(` <if test="BETWEEN_%s != null && BETWEEN_%s != '' && BETWEEN_%s != 0"> and %s between #{%s} and #{%s} </if>`, tag, tag, tag, tag, tag, tag))
+	builder.WriteString(fmt.Sprintf(` <if test="NOT_BETWEEN_%s != null && NOT_BETWEEN_%s != '' && NOT_BETWEEN_%s != 0"> and %s not between #{%s} and #{%s} </if>`, tag, tag, tag, tag, tag, tag))
 }
 
 type User struct {

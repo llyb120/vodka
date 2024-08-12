@@ -58,6 +58,9 @@ var userMapper UserMapper
 vodka.InitMapper(&userMapper)
 
 userMapper.InsertOne(&User{Name:"张三"})
+
+// ByMap系列方法可以使用多种策略参数，例如GT_EQ、LT_EQ、GT、LT、EQ、NE、LIKE、IN、NOT_IN、BETWEEN、NOT_BETWEEN等
+userMapper.SelectAllByMap(map[string]interface{}{"GTE_age": 18, "name": "张三"}, "", 0, 10)
 ```
 
 ## 进阶用法
