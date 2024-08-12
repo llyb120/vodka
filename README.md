@@ -4,6 +4,8 @@ Vodka是Go的一个轻量级的半自动化ORM框架，灵感来自MyBatis。
 
 希望可以和go中的gin框架，与柯南中的Gin同Vodka一样，成为形影不离的好伙伴。
 
+![](img/banner.png)
+
 ## 特性
 
 - 简单，开箱即用 
