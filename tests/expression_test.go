@@ -97,6 +97,12 @@ func TestEvaluateExpression(t *testing.T) {
 			expected: false,
 		},
 		{
+			name:     "多元判断2",
+			expr:     "EQ_name != 0 && EQ_name != '' && EQ_name != null",
+			params:   map[string]interface{}{"EQ_name": "name"},
+			expected: true,
+		},
+		{
 			name:     "判断order",
 			expr:     "order != ''",
 			params:   map[string]interface{}{"order": "id desc"},

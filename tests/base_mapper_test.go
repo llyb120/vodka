@@ -64,6 +64,15 @@ func TestBaseMapper(t *testing.T) {
 		fmt.Println(deps)
 	})
 
+	t.Run("selectAllByMap测试", func(t *testing.T) {
+		baseMapperPrepare(t)
+		deps, err := depMapper.SelectAllByMap(map[string]interface{}{"EQ_name": "dep1"}, "id desc", 0, 10)
+		if err != nil {
+			t.Fatal(err)
+		}
+		fmt.Println(deps)
+	})
+
 	t.Run("countAll测试", func(t *testing.T) {
 		baseMapperPrepare(t)
 		count, err := depMapper.CountAll(&Dep{Name: "dep1"})
@@ -75,7 +84,7 @@ func TestBaseMapper(t *testing.T) {
 
 	t.Run("selectAllByMap测试", func(t *testing.T) {
 		baseMapperPrepare(t)
-		deps, err := depMapper.SelectAllByMap(map[string]interface{}{"IN_name": []string{"dep1", "dep2"}}, "id desc", 0, 10)
+		deps, err := depMapper.SelectAllByMap(map[string]interface{}{"EQ_name": "a"}, "id desc", 0, 10)
 		if err != nil {
 			t.Fatal(err)
 		}

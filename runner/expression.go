@@ -389,7 +389,7 @@ func isWhitespace(c byte) bool {
 
 // 辅助函数：判断字符是否为字母
 func isLetter(c byte) bool {
-	return unicode.IsLetter(rune(c))
+	return unicode.IsLetter(rune(c)) || c == '_'
 }
 
 // 辅助函数：判断字符是否为数字

@@ -52,23 +52,38 @@ func NewAnalyzer(xmlContent string) *Analyzer {
 }
 
 func CallFunction(fn *Function, params map[string]interface{}, resultWrappers []interface{}) error {
-	// 如果params中只有一个参数，且为map或者结构体指针的情况下，将其展开放入params中
-	if len(params) == 1 {
-		for k, v := range params {
-			params[k] = reflect.ValueOf(v).Interface()
-			// 如果是map
-			if reflect.TypeOf(v).Kind() == reflect.Map {
-				for mk, mv := range v.(map[string]interface{}) {
-					params[mk] = mv
-				}
-			} else if reflect.TypeOf(v).Kind() == reflect.Ptr && reflect.TypeOf(v).Elem().Kind() == reflect.Struct {
-				extractStructFields(reflect.ValueOf(v).Elem(), params)
-			} else if reflect.TypeOf(v).Kind() == reflect.Struct {
-				extractStructFields(reflect.ValueOf(v), params)
-			}
-			break
+	// 任何时候，如果params中只有一个参数，且为map或者结构体指针的情况下，将其展开放入params中
+	for k, v := range params {
+		// 如果k以...开头，则默认展开
+		if strings.HasPrefix(k, "...") {
+			// 将...的值赋值给k
+			params[strings.TrimPrefix(k, "...")] = v
+			delete(params, k)
+			// 展开
+			extractObject(v, params)
+			// for mk, mv := range v.(map[string]interface{}) {
+			// 	params[mk] = mv
+			// }
 		}
 	}
+
+	if len(params) == 1 {
+		for _, v := range params {
+			// params[k] = reflect.ValueOf(v).Interface()
+			// 如果是map
+			extractObject(v, params)
+			// if reflect.TypeOf(v).Kind() == reflect.Map {
+			// 	for mk, mv := range v.(map[string]interface{}) {
+			// 		params[mk] = mv
+			// 	}
+			// } else if reflect.TypeOf(v).Kind() == reflect.Ptr && reflect.TypeOf(v).Elem().Kind() == reflect.Struct {
+			// 	extractStructFields(reflect.ValueOf(v).Elem(), params)
+			// } else if reflect.TypeOf(v).Kind() == reflect.Struct {
+			// 	extractStructFields(reflect.ValueOf(v), params)
+			// }
+			break
+		}
+	} 
 
 	return fn.Func(resultWrappers, params)
 }
@@ -448,6 +463,19 @@ func getValueByDollarBlock(key string, params map[string]interface{}) string {
 		value := runner.GetValue(key, params)
 		return fmt.Sprintf("%v", value)
 	}
+}
+
+func extractObject(v any, params map[string]any) {
+	typeOfV := reflect.TypeOf(v)
+	if typeOfV.Kind() == reflect.Map {
+		for mk, mv := range v.(map[string]interface{}) {
+			params[mk] = mv
+		}
+	} else if typeOfV.Kind() == reflect.Ptr && typeOfV.Elem().Kind() == reflect.Struct {
+		extractStructFields(reflect.ValueOf(v).Elem(), params)
+	} else if typeOfV.Kind() == reflect.Struct {
+		extractStructFields(reflect.ValueOf(v), params)
+	}	
 }
 
 func extractStructFields(structValue reflect.Value, params map[string]interface{}) {
