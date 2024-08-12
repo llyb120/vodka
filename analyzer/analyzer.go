@@ -111,7 +111,7 @@ func (t *Analyzer) Parse() error {
 		if !ok {
 			continue
 		}
-		t.Functions[id] = generateFunction(namespace, node)
+		t.Functions[id] = generateFunction(namespace, node, root)
 	}
 
 	t.inited = true
@@ -130,7 +130,7 @@ func ParseXml(namespace, xmlContent string) ([]*Function, error) {
 	}
 	functions := make([]*Function, 0)
 	for _, node := range root.Children {
-		functions = append(functions, generateFunction(namespace, node))
+		functions = append(functions, generateFunction(namespace, node, root))
 	}
 	return functions, nil
 }
@@ -153,7 +153,7 @@ func ParseMultiSql(namespace string, sqls []string) ([]*Function, error) {
 	}
 	functions := make([]*Function, 0)
 	for _, node := range root.Children {
-		functions = append(functions, generateFunction(namespace, node))
+		functions = append(functions, generateFunction(namespace, node, root))
 	}
 	return functions, nil
 }
@@ -170,13 +170,14 @@ func ParseSingleSql(namespace, sql string) (*Function, error) {
 	if err != nil {
 		return nil, err
 	}
-	return generateFunction(namespace, root), nil
+	return generateFunction(namespace, root, root), nil
+
 }
 
 // ---------------------- 以下为私有方法 ----------------------
 
 // 生成对应的方法体
-func generateFunction(mapperName string, node *xml.Node) *Function {
+func generateFunction(mapperName string, node *xml.Node, root *xml.Node) *Function {
 	funcFunc := func(resultWrappers []interface{}, params map[string]interface{}) (resultErr error) {
 		defer func() {
 			if err := recover(); err != nil {
@@ -187,13 +188,14 @@ func generateFunction(mapperName string, node *xml.Node) *Function {
 		var builder strings.Builder
 		var invokeParams []interface{}
 		for _, child := range node.Children {
-			handleNode(&builder, child, params, &invokeParams)
+			handleNode(&builder, child, params, &invokeParams, root)
 		}
 		log.Printf("【%s】【%s】 sql : %s %v", mapperName, node.Attrs["id"], builder.String(), invokeParams)
 		// 如果是查询语句
 		if node.Name == "SELECT" {
 			resultErr = database.QueryStruct(mysqld.GetDB(), builder.String(), invokeParams, resultWrappers)
-		} else {
+		} else if node.Name == "INSERT" || node.Name == "UPDATE" || node.Name == "DELETE" {
+			// 只能执行这三个指令
 			resultErr = database.ExecuteInt64(mysqld.GetDB(), builder.String(), invokeParams, resultWrappers)
 		}
 		return resultErr
@@ -208,25 +210,29 @@ func generateFunction(mapperName string, node *xml.Node) *Function {
 }
 
 // 处理节点
-func handleNode(builder *strings.Builder, node *xml.Node, params map[string]interface{}, resultParams *[]interface{}) {
+func handleNode(builder *strings.Builder, node *xml.Node, params map[string]interface{}, resultParams *[]interface{}, root *xml.Node) {
 	if node.Type == xml.Text {
 		handleText(builder, node, params, resultParams)
 	} else {
 		switch node.Name {
 		case "IF":
-			handleIfStatement(builder, node, params, resultParams)
+			handleIfStatement(builder, node, params, resultParams, root)
 		case "FOREACH":
-			handleForeachStatement(builder, node, params, resultParams)
+			handleForeachStatement(builder, node, params, resultParams, root)
 		case "WHERE":
-			handleWhereStatement(builder, node, params, resultParams)
+			handleWhereStatement(builder, node, params, resultParams, root)
 		case "SET":
-			handleSetStatement(builder, node, params, resultParams)
+			handleSetStatement(builder, node, params, resultParams, root)
+		case "SQL":
+			handleSqlStatement(builder, node, params, resultParams, root)
+		case "INCLUDE":
+			handleIncludeStatement(builder, node, params, resultParams, root)
 		}
 	}
 }
 
 // 处理if语句
-func handleIfStatement(builder *strings.Builder, node *xml.Node, params map[string]interface{}, resultParams *[]interface{}) {
+func handleIfStatement(builder *strings.Builder, node *xml.Node, params map[string]interface{}, resultParams *[]interface{}, root *xml.Node) {
 	// 获取test属性的值
 	testExpr, ok := node.Attrs["test"]
 	if !ok {
@@ -239,13 +245,13 @@ func handleIfStatement(builder *strings.Builder, node *xml.Node, params map[stri
 	// 如果表达式结果为true，则处理if语句的子节点
 	if result != false {
 		for _, child := range node.Children {
-			handleNode(builder, child, params, resultParams)
+			handleNode(builder, child, params, resultParams, root)
 		}
 	}
 }
 
 // 处理foreach语句
-func handleForeachStatement(builder *strings.Builder, node *xml.Node, params map[string]interface{}, resultParams *[]interface{}) {
+func handleForeachStatement(builder *strings.Builder, node *xml.Node, params map[string]interface{}, resultParams *[]interface{}, root *xml.Node) {
 	// 获取目标需要循环的对象，默认为list
 	collectionKey, ok := node.Attrs["collection"]
 	if !ok {
@@ -296,7 +302,7 @@ func handleForeachStatement(builder *strings.Builder, node *xml.Node, params map
 		params[mapKey] = collectionValue.Index(i).Interface()
 		// 获取map的key
 		for _, child := range node.Children {
-			handleNode(&childBuilder0, child, params, resultParams)
+			handleNode(&childBuilder0, child, params, resultParams, root)
 		}
 		if childBuilder0.Len() > 0 {
 			childBuilder0.WriteString(separator)
@@ -315,14 +321,15 @@ func handleForeachStatement(builder *strings.Builder, node *xml.Node, params map
 	}
 }
 
-func handleWhereStatement(builder *strings.Builder, node *xml.Node, params map[string]interface{}, resultParams *[]interface{}) {
+func handleWhereStatement(builder *strings.Builder, node *xml.Node, params map[string]interface{}, resultParams *[]interface{}, root *xml.Node) {
 
 	// 移除第一个 "AND" 或 "OR"
 	sqlBuilder := strings.Builder{}
 	isFirstCondition := true
 	for _, child := range node.Children {
 		childBuilder := &strings.Builder{}
-		handleNode(childBuilder, child, params, resultParams)
+		handleNode(childBuilder, child, params, resultParams, root)
+
 		childSQL := strings.TrimSpace(childBuilder.String())
 
 		if strings.HasPrefix(strings.ToUpper(childSQL), "AND") || strings.HasPrefix(strings.ToUpper(childSQL), "OR") {
@@ -343,12 +350,12 @@ func handleWhereStatement(builder *strings.Builder, node *xml.Node, params map[s
 	}
 }
 
-func handleSetStatement(builder *strings.Builder, node *xml.Node, params map[string]any, resultParams *[]any) {
+func handleSetStatement(builder *strings.Builder, node *xml.Node, params map[string]any, resultParams *[]any, root *xml.Node) {
 	builder.WriteString(" set ")
 	var childBuilder strings.Builder
 	// 移除末尾的逗号
 	for _, child := range node.Children {
-		handleNode(&childBuilder, child, params, resultParams)
+		handleNode(&childBuilder, child, params, resultParams, root)
 	}
 	childSQL := strings.TrimSpace(childBuilder.String())
 	if strings.HasSuffix(childSQL, ",") {
@@ -356,6 +363,32 @@ func handleSetStatement(builder *strings.Builder, node *xml.Node, params map[str
 	}
 	builder.WriteString(childSQL)
 	builder.WriteString(" ")
+}
+
+func handleSqlStatement(builder *strings.Builder, node *xml.Node, params map[string]interface{}, resultParams *[]interface{}, root *xml.Node) {
+	for _, child := range node.Children {
+		handleNode(builder, child, params, resultParams, root)
+	}
+}
+
+func handleIncludeStatement(builder *strings.Builder, node *xml.Node, params map[string]interface{}, resultParams *[]interface{}, root *xml.Node) {
+	// 获取include的文件名
+	refid, ok := node.Attrs["refid"]
+	if !ok {
+		return 
+	}
+	// 查找root中是否有符合id的节点
+	for _, child := range root.Children {
+		if child.Attrs["id"] == refid {
+			// 不能是自身
+			if child == node {
+				continue
+			}
+			// 获取include的文件内容
+			handleNode(builder, child, params, resultParams, root)
+			break
+		}
+	}
 }
 
 // 处理文本节点

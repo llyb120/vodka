@@ -27,43 +27,7 @@ type User struct {
 }
 ```
 
-### 通用Mapper
-- 直接继承mapper.VodkaMapper，即可拥有通用Mapper的所有功能
-- 以下基础语句会自动装配，无需再书写xml文件
-```go
-type VodkaMapper[T any, ID any] struct {
-	InsertOne            func(params *T) (int64, int64, error)                                                      `params:"params"`
-	InsertBatch          func(params []*T) (int64, int64, error)                                                    `params:"params"`
-	UpdateById           func(params *T) (int64, error)                                                             `params:"params"`
-	UpdateSelectiveById  func(params *T) (int64, error)                                                             `params:"params"`
-	UpdateByCondition    func(condition *T, action *T) (int64, error)                                               `params:"condition,action"`
-	UpdateByConditionMap func(condition map[string]interface{}, action map[string]interface{}) (int64, error)       `params:"condition,action"`
-	DeleteById           func(id ID) (int64, error)                                                                 `params:"id"`
-	SelectById           func(id ID) (*T, error)                                                                    `params:"id"`
-	SelectAll            func(params *T, order string, offset int64, limit int64) ([]*T, error)                     `params:"params,order,offset,limit"`
-	CountAll             func(params *T) (int64, error)                                                             `params:"params"`
-	SelectAllByMap       func(params map[string]interface{}, order string, offset int64, limit int64) ([]*T, error) `params:"params,order,offset,limit"`
-	CountAllByMap        func(params map[string]interface{}) (int64, error)                                         `params:"params"`
-}
 
-// 示例
-type UserMapper struct {
-    mapper.VodkaMapper[User, int64]
-    // 需要额外书写表名和主键定义
-    _ any `table:"user" pk:"id"`
-}
-
-//test
-var userMapper UserMapper
-vodka.InitMapper(&userMapper)
-
-userMapper.InsertOne(&User{Name:"张三"})
-
-// ByMap系列方法可以使用多种策略参数，例如GT_EQ、LT_EQ、GT、LT、EQ、NE、LIKE、IN、NOT_IN、BETWEEN、NOT_BETWEEN等
-userMapper.SelectAllByMap(map[string]interface{}{"GTE_age": 18, "name": "张三"}, "", 0, 10)
-```
-
-## 进阶用法
 
 ### 定义你的mapper接口 (无需实现，vodka会自动装配这些方法)
 ```go
@@ -164,11 +128,49 @@ userMapper.Delete(1)
 - insert：定义插入语句
 - update：定义更新语句
 - delete：定义删除语句
+- foreach 循环语句，分为collection/item/separator/open/close 五个属性
 - where：定义查询条件，使用该标签，可直接使用and进行条件拼装，无需判断在第一个条件上不使用and
 - if：定义表达式判断，符合test的表达式才会生效
 - set: 定义更新语句中的set部分，使用该标签，可直接在每条语句后拼装逗号，无需检查最后一个是否拼装
+- sql: 定义sql语句，抽象出公共的模块，可以供include引用
+- include: 引用sql语句，可以简单理解为文本替换
 
 
+### 通用Mapper
+- 直接继承mapper.VodkaMapper，即可拥有通用Mapper的所有功能
+- 以下基础语句会自动装配，无需再书写xml文件
+```go
+type VodkaMapper[T any, ID any] struct {
+	InsertOne            func(params *T) (int64, int64, error)                                                      `params:"params"`
+	InsertBatch          func(params []*T) (int64, int64, error)                                                    `params:"params"`
+	UpdateById           func(params *T) (int64, error)                                                             `params:"params"`
+	UpdateSelectiveById  func(params *T) (int64, error)                                                             `params:"params"`
+	UpdateByCondition    func(condition *T, action *T) (int64, error)                                               `params:"condition,action"`
+	UpdateByConditionMap func(condition map[string]interface{}, action map[string]interface{}) (int64, error)       `params:"condition,action"`
+	DeleteById           func(id ID) (int64, error)                                                                 `params:"id"`
+	SelectById           func(id ID) (*T, error)                                                                    `params:"id"`
+	SelectAll            func(params *T, order string, offset int64, limit int64) ([]*T, error)                     `params:"params,order,offset,limit"`
+	CountAll             func(params *T) (int64, error)                                                             `params:"params"`
+	SelectAllByMap       func(params map[string]interface{}, order string, offset int64, limit int64) ([]*T, error) `params:"params,order,offset,limit"`
+	CountAllByMap        func(params map[string]interface{}) (int64, error)                                         `params:"params"`
+}
+
+// 示例
+type UserMapper struct {
+    mapper.VodkaMapper[User, int64]
+    // 需要额外书写表名和主键定义
+    _ any `table:"user" pk:"id"`
+}
+
+//test
+var userMapper UserMapper
+vodka.InitMapper(&userMapper)
+
+userMapper.InsertOne(&User{Name:"张三"})
+
+// ByMap系列方法可以使用多种策略参数，例如GT_EQ、LT_EQ、GT、LT、EQ、NE、LIKE、IN、NOT_IN、BETWEEN、NOT_BETWEEN等
+userMapper.SelectAllByMap(map[string]interface{}{"GTE_age": 18, "name": "张三"}, "", 0, 10)
+```
 
 
 ### 其余说明

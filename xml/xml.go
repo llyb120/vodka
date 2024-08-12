@@ -100,9 +100,25 @@ LOOP:
 					p.next()
 				} else {
 					// 如果不是空格，则开始进入标签
-					token := p.readUntil(' ', '\t', '>')
+					token := p.readUntil(' ', '\t', '>', '/')
 					node := &Node{Type: Tag, Name: strings.ToUpper(token), Attrs: make(map[string]string), Children: make([]*Node, 0)}
 					p.readAttributes(node)
+
+					// 如果是自闭合标签
+					if p.peek() == '/' {
+						p.next() // 跳过 '/'
+						if p.peek() == '>' {
+							p.next() // 跳过 '>'
+							// 处理自闭合标签
+							if len(stack) > 0 {
+								pNode := stack[len(stack)-1]
+								pNode.Children = append(pNode.Children, node)
+							} else {
+								root = node
+							}
+							continue LOOP
+						}
+					}
 					// 跳过结束标签
 					p.next()
 					// 放入栈中
@@ -134,7 +150,10 @@ func (p *Parser) readAttributes(node *Node) {
 		if p.peek() == '>' || p.peek() == 0 {
 			break
 		}
-		attrKey = p.readUntil('=', ' ', '\t', '>')
+		attrKey = p.readUntil('=', ' ', '\t', '>', '/')
+		if attrKey == "" {
+			break
+		}
 		if p.peek() == '=' {
 			p.next() // 跳过等号
 			p.consumeWhitespace()
@@ -143,7 +162,7 @@ func (p *Parser) readAttributes(node *Node) {
 				attrValue = p.readUntil(quote)
 				p.next() // 跳过结束引号
 			} else {
-				attrValue = p.readUntil(' ', '\t', '>')
+				attrValue = p.readUntil(' ', '\t', '>', '/')
 			}
 		} else {
 			attrValue = "" // 独立单词属性设置空值

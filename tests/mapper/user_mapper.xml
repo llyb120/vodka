@@ -63,4 +63,12 @@
         </where>
     </select>
 
+    <sql id="fields">   
+        id, name, age
+    </sql>
+
+    <select id="TestInclude" resultType="User">
+        SELECT <include refid="fields" /> FROM user
+    </select>
+
 </mapper>

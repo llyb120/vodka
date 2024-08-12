@@ -44,11 +44,21 @@ func TestLexer(t *testing.T) {
             </foreach>
         )
     </select>
+
+    <sql id="UserColumns" >
+        id, name
+    </sql>
+
+    <include refid="UserColumns" />
 </mapper>
 `
 
 	parser := xml.NewParser(xmlData)
-	root, _ := parser.Parse()
+	root, err := parser.Parse()
+	if err != nil {
+		t.Fatal(err)
+	}
 	fmt.Print(root)
+
 	//parser.PrintNode(root, "")
 }

@@ -86,6 +86,14 @@ func TestMapper(t *testing.T) {
 		t.Log(rows, id)
 	})
 
+	t.Run("测试mapper include", func(t *testing.T) {
+		prepare(t)
+		err := userMapper.TestInclude()
+		if err != nil {
+			t.Errorf("测试include失败: %v", err)
+		}
+	})
+
 }
 
 func prepare(t *testing.T) {

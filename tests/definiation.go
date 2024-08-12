@@ -26,5 +26,6 @@ type UserMapper struct {
 	UpdateById func(user *User) (int64, int64, error) `params:"user"`
 	// UpdateBatch func(users []*User) (int64, int64, error) `params:"users"`
 
+	TestInclude func() error 
 
 }
