@@ -35,23 +35,23 @@ type User struct {
 ```go
 type UserMapper struct {
     // 基础查询
-    Select              func(params interface{}) ([]*User, error)   `param:"params"` //params为在xml中映射的名字
+    Select            func(params interface{}) ([]*User, error) `param:"params"` //params为在xml中映射的名字
 
     // 部分无需xml的情况，可以直接通过tag自定义sql
-    SelectByCustomSql   func(params interface{}) ([]*User, error)   `param:"params" sql:"select * from user where id = #{id}"`
+    SelectByCustomSql func(params interface{}) ([]*User, error) `param:"params" sql:"select * from user where id = #{id}"`
 
     // 插入
     // insert语句最多支持3个返回值，分别为影响的行数、自增主键、错误
-    Insert              func(user *User) (int64, int64, error)      `param:"user"`
-    InsertBatch         func(users []*User) (int64, error)          `param:"users"`
+    Insert            func(user *User) (int64, int64, error)    `param:"user"`
+    InsertBatch       func(users []*User) (int64, error)        `param:"users"`
 
     // 更新
     // 更新语句最多支持2个返回值，分别为影响的行数、错误
-    Update              func(user *User) (int64, error)             `param:"user"`
+    Update            func(user *User) (int64, error)           `param:"user"`
 
     // 删除
     // 删除语句最多支持2个返回值，分别为影响的行数、错误
-    Delete              func(id int) (int64, error)                 `param:"id"`
+    Delete            func(id int) (int64, error)               `param:"id"`
 
 }
 ```
@@ -59,18 +59,20 @@ type UserMapper struct {
 ### 定义你的xml映射文件
 - 可直接使用mybatis的工具生成，无需繁琐的书写步骤
 - 针对复杂查询，在xml中和原生sql书写并无二致，只需要附加你的条件即可
+- 支持include标签，可以引用通用的sql语句
 ```xml
 <mapper namespace="UserMapper">
     <!-- 复杂查询 -->
     <select id="Select" resultType="User">
-        SELECT * FROM users 
+        SELECT u.* FROM users u
+        inner join user_role ur on u.id = ur.user_id
         <where>
             <if test="id != null">
-                and id = #{id}
+                and u.id = #{id}
             </if>
 
             <if test="in_ids != null">
-                and id in (
+                and u.id in (
                     <foreach collection="in_ids" item="id" separator=",">
                         #{id}
                     </foreach>
@@ -87,11 +89,10 @@ type UserMapper struct {
     </insert>
     
     <insert id="insertBatch">
-        INSERT INTO users (name, age) VALUES (
-            <foreach collection="users" item="user" separator=",">
-                (#{user.name}, #{user.age})
-            </foreach>
-        )
+        INSERT INTO users (name, age) VALUES 
+        <foreach collection="users" item="user" separator=",">
+            (#{user.name}, #{user.age})
+        </foreach>
     </insert>
 
     <update id="Update" >
@@ -101,6 +102,63 @@ type UserMapper struct {
     <delete id="Delete" >
         DELETE FROM users WHERE id = #{id}
     </delete>
+
+    <!-- 贴一个不相关的复杂例子 -->
+    <select id="getTotalNumber" resultType="java.util.Map">
+        SELECT
+        IFNULL(SUM(inAmount),0) as inAmountTotal,
+        IFNULL(SUM(outAmount),0) as outAmountTotal,
+        IFNULL(SUM(unWriteOffAmount),0) as unWriteOffAmountTotal
+        FROM
+        scm_accounts_receivable
+        LEFT JOIN base_customer base_customer_id ON base_customer_id.id = scm_accounts_receivable.customerId
+        JOIN base_customer ON scm_accounts_receivable.customerCode=base_customer.code AND base_customer.history=1
+        <where>
+            <include refid="com.lordstar.emis.mapper.AccountsReceivableMapperGen.accountsReceivableWheres"></include>
+            <if test="IN_dataScopeUserName !=null and IN_dataScopeUserName !=''">
+                AND (
+                scm_accounts_receivable.createBy= #{EQ_myCreate}
+                OR base_customer.yFollowId IN
+                <foreach item="item" index="index" collection="IN_dataScopeUserName"
+                         open="(" separator="," close=")">
+                    #{item}
+                </foreach>
+                OR base_customer.kFollowId IN
+                <foreach item="item" index="index" collection="IN_dataScopeUserName"
+                         open="(" separator="," close=")">
+                    #{item}
+                </foreach>
+                )
+            </if>
+            <if test="EQ_customer_kFollowId !=null and EQ_customer_kFollowId !=''">
+                AND base_customer.kFollowId=#{EQ_customer_kFollowId}
+            </if>
+            <if test="EQ_customer_yFollowId !=null and EQ_customer_yFollowId !=''">
+                AND base_customer.yFollowId=#{EQ_customer_yFollowId}
+            </if>
+            <if test="EQ_series !=null and EQ_series !=''">
+                AND base_customer_id.series=#{EQ_series}
+            </if>
+            <if test="EQ_kFollow !=null and EQ_kFollow !=''">
+                AND base_customer.kFollow=#{EQ_kFollow}
+            </if>
+            <if test="EQ_yFollow !=null and EQ_yFollow !=''">
+                AND base_customer.yFollow=#{EQ_yFollow}
+            </if>
+            <if test='IS_delay !=null and IS_delay !="" and IS_delay == 1'>
+                AND scm_accounts_receivable.delayNum>0
+            </if>
+            <if test='IS_delay !=null and IS_delay !="" and IS_delay == 0'>
+                AND scm_accounts_receivable.delayNum=0
+            </if>
+            <if test="LIKE_customerName !=null and LIKE_customerName !=''">
+                AND base_customer_id.customerName like CONCAT('%',#{LIKE_customerName},'%' )
+            </if>
+            <if test="EQ_customerName !=null and EQ_customerName !=''">
+                AND base_customer_id.customerName=#{EQ_customerName}
+            </if>
+        </where>
+    </select>
 
 </mapper>
 ```
