@@ -35,19 +35,24 @@ type User struct {
 ```go
 type UserMapper struct {
     // 基础查询
-    Select(params interface{}) ([]*User, error) `param:"params"` //params为在xml中映射的名字
+    Select              func(params interface{}) ([]*User, error)   `param:"params"` //params为在xml中映射的名字
+
     // 部分无需xml的情况，可以直接通过tag自定义sql
-    SelectByCustomSql(params interface{}) ([]*User, error) `param:"params" sql:"select * from user where id = #{id}"`
+    SelectByCustomSql   func(params interface{}) ([]*User, error)   `param:"params" sql:"select * from user where id = #{id}"`
+
     // 插入
     // insert语句最多支持3个返回值，分别为影响的行数、自增主键、错误
-    Insert(user *User) (int64, int64, error) `param:"user"`
-    InsertBatch(users []*User) (int64, error) `param:"users"`
+    Insert              func(user *User) (int64, int64, error)      `param:"user"`
+    InsertBatch         func(users []*User) (int64, error)          `param:"users"`
+
     // 更新
     // 更新语句最多支持2个返回值，分别为影响的行数、错误
-    Update(user *User) (int64, error) `param:"user"`
+    Update              func(user *User) (int64, error)             `param:"user"`
+
     // 删除
     // 删除语句最多支持2个返回值，分别为影响的行数、错误
-    Delete(id int) (int64, error) `param:"id"`
+    Delete              func(id int) (int64, error)                 `param:"id"`
+
 }
 ```
 
@@ -151,9 +156,9 @@ type VodkaMapper[T any, ID any] struct {
 	UpdateByConditionMap func(condition map[string]interface{}, action map[string]interface{}) (int64, error)       `params:"condition,action"`
 	DeleteById           func(id ID) (int64, error)                                                                 `params:"id"`
 	SelectById           func(id ID) (*T, error)                                                                    `params:"id"`
-	SelectAll            func(params *T, order string, offset int64, limit int64) ([]*T, error)                     `params:"params,order,offset,limit"`
+	SelectAll            func(params *T, order string, offset int64, limit int64) ([]*T, error)                     `params:"...params,order,offset,limit"` // 多个参数下，框架无法判断是否需要展开，所以使用...来表示
 	CountAll             func(params *T) (int64, error)                                                             `params:"params"`
-	SelectAllByMap       func(params map[string]interface{}, order string, offset int64, limit int64) ([]*T, error) `params:"params,order,offset,limit"`
+	SelectAllByMap       func(params map[string]interface{}, order string, offset int64, limit int64) ([]*T, error) `params:"...params,order,offset,limit"` // 多个参数下，框架无法判断是否需要展开，所以使用...来表示
 	CountAllByMap        func(params map[string]interface{}) (int64, error)                                         `params:"params"`
 }
 
