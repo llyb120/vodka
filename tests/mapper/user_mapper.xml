@@ -71,4 +71,9 @@
         SELECT <include refid="fields" /> FROM user
     </select>
 
+
+    <permission id="PermissionId">
+        where id = #{id}
+    </permission>
+
 </mapper>

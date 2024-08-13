@@ -10,6 +10,7 @@ import (
 	"strings"
 	database "vodka/database"
 	mysqld "vodka/database/mysql"
+	page "vodka/plugin/page"
 	runner "vodka/runner"
 	"vodka/xml"
 )
@@ -83,7 +84,7 @@ func CallFunction(fn *Function, params map[string]interface{}, resultWrappers []
 			// }
 			break
 		}
-	} 
+	}
 
 	return fn.Func(resultWrappers, params)
 }
@@ -206,12 +207,39 @@ func generateFunction(mapperName string, node *xml.Node, root *xml.Node) *Functi
 			handleNode(&builder, child, params, &invokeParams, root)
 		}
 		log.Printf("【%s】【%s】 sql : %s %v", mapperName, node.Attrs["id"], builder.String(), invokeParams)
+		// 插件系统
+		// 构造HOOK CONTEXT
+		// todo: 插件后续再开发
+		// builderPtr := &builder
+		// hookContext := plugin.HookContext{
+		// 	Builder:        &builderPtr,
+		// 	RequestParams:  &invokeParams,
+		// 	ResultWrappers: &resultWrappers,
+		// }
+		// fmt.Print(hookContext)
 		// 如果是查询语句
 		if node.Name == "SELECT" {
-			resultErr = database.QueryStruct(mysqld.GetDB(), builder.String(), invokeParams, resultWrappers)
+			// hookContext.Fn = func() {
+			// 如果是在分页查询的环境下
+			pg := page.GetPageContext()
+			if pg != nil {
+				// 这里表示已经开启了分页的，但是因为无法获得具体的泛型，没办法转换
+				// 先查询总页数
+				resultErr = page.QueryPage(mysqld.GetDB(), builder.String(), invokeParams, resultWrappers, pg)
+				// total, _ := page.SelectTotal(mysqld.GetDB(), builder.String(), invokeParams)
+				// pg.TotalRows = total
+				//resultErr = database.QueryStruct(mysqld.GetDB(), builder.String(), invokeParams, resultWrappers)
+			} else {
+				resultErr = database.QueryStruct(mysqld.GetDB(), builder.String(), invokeParams, resultWrappers)
+			}
+			// }
+			// 执行插件
+			// plugin.Execute(hookContext)
 		} else if node.Name == "INSERT" || node.Name == "UPDATE" || node.Name == "DELETE" {
 			// 只能执行这三个指令
+			// hookContext.Fn = func() {
 			resultErr = database.ExecuteInt64(mysqld.GetDB(), builder.String(), invokeParams, resultWrappers)
+			// }
 		}
 		return resultErr
 	}
@@ -242,6 +270,9 @@ func handleNode(builder *strings.Builder, node *xml.Node, params map[string]inte
 			handleSqlStatement(builder, node, params, resultParams, root)
 		case "INCLUDE":
 			handleIncludeStatement(builder, node, params, resultParams, root)
+		default:
+			// 处理自定义节点
+			handleCustomStatement(builder, node, params, resultParams, root)
 		}
 	}
 }
@@ -390,7 +421,7 @@ func handleIncludeStatement(builder *strings.Builder, node *xml.Node, params map
 	// 获取include的文件名
 	refid, ok := node.Attrs["refid"]
 	if !ok {
-		return 
+		return
 	}
 	// 查找root中是否有符合id的节点
 	for _, child := range root.Children {
@@ -404,6 +435,10 @@ func handleIncludeStatement(builder *strings.Builder, node *xml.Node, params map
 			break
 		}
 	}
+}
+
+func handleCustomStatement(builder *strings.Builder, node *xml.Node, params map[string]interface{}, resultParams *[]interface{}, root *xml.Node) {
+
 }
 
 // 处理文本节点
@@ -475,7 +510,7 @@ func extractObject(v any, params map[string]any) {
 		extractStructFields(reflect.ValueOf(v).Elem(), params)
 	} else if typeOfV.Kind() == reflect.Struct {
 		extractStructFields(reflect.ValueOf(v), params)
-	}	
+	}
 }
 
 func extractStructFields(structValue reflect.Value, params map[string]interface{}) {

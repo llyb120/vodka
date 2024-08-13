@@ -13,8 +13,8 @@ Vodka是Go的一个轻量级的半自动化ORM框架，灵感来自MyBatis。
 - SQL和代码分离，方便管理
 - 支持用于复杂查询的动态SQL
 - 对基础查询语句直接自动装配，无需再书写xml文件
+- 支持插件
 - 支持缓存 (开发中)
-- 支持插件 (开发中)
 - 支持定义切面，插入自己的权限语句（开发中）
 
 
@@ -172,6 +172,23 @@ userMapper.InsertOne(&User{Name:"张三"})
 
 // ByMap系列方法可以使用多种策略参数，例如GT_EQ、LT_EQ、GT、LT、EQ、NE、LIKE、IN、NOT_IN、BETWEEN、NOT_BETWEEN等
 userMapper.SelectAllByMap(map[string]interface{}{"GTE_age": 18, "name": "张三"}, "", 0, 10)
+```
+
+### 分页插件
+- Vodka内置分页插件，简单易用
+- 只需要在查询语句外使用DoPage方法即可，代码和语句无需任何修改
+```go
+var pg page.Page[User]
+pg.PageNum = 1
+pg.PageSize = 10
+pg.Sort = "id desc"
+err := page.DoPage(&pg, func() {
+    // 这里已无需返回值
+    userMapper.GetUsers()
+})
+fmt.Println(pg.List)
+fmt.Println(pg.TotalRows)
+
 ```
 
 

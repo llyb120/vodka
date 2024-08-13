@@ -2,8 +2,8 @@ package tests
 
 import (
 	"testing"
-	"vodka"
 	"vodka/database"
+	"vodka/mapper"
 )
 
 // type User struct {
@@ -68,9 +68,9 @@ func Prepare(t *testing.T) {
 	// 设置数据库
 	database.SetDB(_db)
 	// 扫描mapper
-	vodka.ScanMapper("./mapper")
+	mapper.ScanMapper("./mapper")
 
-	err := vodka.InitMapper(userMapper)
+	err := mapper.InitMapper(userMapper)
 	if err != nil {
 		t.Fatalf("InitMapper() error = %v", err)
 	}

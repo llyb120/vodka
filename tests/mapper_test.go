@@ -11,12 +11,12 @@ func TestMapper(t *testing.T) {
 	t.Run("测试mapper缓存", func(t *testing.T) {
 		prepare(t)
 		var user UserMapper
-		err := mapper.BindMapper(&user)
+		err := mapper.InitMapper(&user)
 		if err != nil {
 			t.Errorf("第一次获取mapper失败: %v", err)
 		}
 		var user2 UserMapper
-		err = mapper.BindMapper(&user2)
+		err = mapper.InitMapper(&user2)
 		if err != nil {
 			t.Errorf("第二次获取mapper失败: %v", err)
 		}

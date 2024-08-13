@@ -2,6 +2,8 @@ package mapper
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"sync"
@@ -34,6 +36,47 @@ type MapperItem struct {
 	MethodId string
 }
 
+func ScanMapper(dir string) error {
+	var wg sync.WaitGroup
+	var analyzers []*analyzer.Analyzer
+	rwMutex := sync.RWMutex{}
+
+	// 遍历指定目录
+	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// 检查文件是否为XML
+		if !info.IsDir() && strings.HasSuffix(strings.ToLower(info.Name()), ".xml") {
+			// 读取XML文件内容
+			content, err := os.ReadFile(path)
+			if err != nil {
+				return err
+			}
+			wg.Add(1)
+			go func(path string) {
+				// 输出找到的XML文件路径
+				println("找到XML文件:", path)
+				defer wg.Done()
+				parser := analyzer.NewAnalyzer(string(content))
+				parser.Parse()
+				rwMutex.Lock()
+				defer rwMutex.Unlock()
+				analyzers = append(analyzers, parser)
+			}(path)
+		}
+		return nil
+	})
+	wg.Wait()
+	// 关闭analyzersChan，释放
+	if err != nil {
+		return err
+	}
+	// 整理所有的analyzer，将相同命名空间的mapper集合到一起
+	return InitMappers(analyzers)
+}
+
 func InitMappers(analyzers []*analyzer.Analyzer) error {
 	mutex.Lock()
 	defer mutex.Unlock()
@@ -64,7 +107,7 @@ func initMapper(analyzer *analyzer.Analyzer) {
 // 	return Mappers[namespace]
 // }
 
-func BindMapper(source interface{}) error {
+func InitMapper(source interface{}) error {
 	mapperValue := reflect.ValueOf(source)
 	// 确保传入的是指针
 	if mapperValue.Kind() != reflect.Ptr {
