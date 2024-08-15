@@ -108,6 +108,12 @@ func TestEvaluateExpression(t *testing.T) {
 			params:   map[string]interface{}{"order": "id desc"},
 			expected: true,
 		},
+		{
+			name:     "函数调用",
+			expr:     "_sum(1, 2, 3)",
+			params:   map[string]interface{}{},
+			expected: float64(6),
+		},
 
 		// 可以添加更多测试用例
 	}

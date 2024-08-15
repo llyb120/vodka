@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 	"unicode"
+	"vodka/plugin"
 )
 
 // TokenType 定义
@@ -21,6 +22,9 @@ const (
 	// 三元表达式
 	QuestionMark TokenType = "QuestionMark"
 	Colon        TokenType = "Colon"
+
+	FunctionCall TokenType = "FunctionCall" // 新增函数调用类型
+
 )
 
 type TokenType string
@@ -265,7 +269,17 @@ func parsePrimary(tokens []Token, pos *int) *ASTNode {
 			}
 		}
 	case Identifier:
+		if *pos < len(tokens) && tokens[*pos].Type == Parenthesis && tokens[*pos].Value == "(" {
+			*pos++ // 跳过左括号
+			args := parseArguments(tokens, pos)
+			if tokens[*pos].Type != Parenthesis || tokens[*pos].Value != ")" {
+				panic("缺少右括号")
+			}
+			*pos++ // 跳过右括号
+			return &ASTNode{Type: "FunctionCall", Value: token.Value, Left: args}
+		}
 		return &ASTNode{Type: "Identifier", Value: token.Value}
+		// return &ASTNode{Type: "Identifier", Value: token.Value}
 	case Integer:
 		value, _ := toInt64(token.Value)
 		return &ASTNode{Type: "Integer", Value: value}
@@ -377,6 +391,12 @@ func evaluateAST(ast *ASTNode, params map[string]interface{}) interface{} {
 			return evaluateAST(ast.Right.Left, params)
 		}
 		return evaluateAST(ast.Right.Right, params)
+
+	case "FunctionCall":
+		funcName := ast.Value.(string)
+		args := evaluateArguments(ast.Left, params)
+		return callFunction(funcName, args)
+
 	default:
 		panic(fmt.Sprintf("未知的节点类型: %s", ast.Type))
 	}
@@ -534,4 +554,56 @@ func GetValue(key string, params interface{}) interface{} {
 		}
 	}
 	return value
+}
+
+func parseArguments(tokens []Token, pos *int) *ASTNode {
+	var args []*ASTNode
+	for *pos < len(tokens) && tokens[*pos].Value != ")" {
+		arg := parseExpression(tokens, pos)
+		args = append(args, arg)
+		if *pos < len(tokens) && tokens[*pos].Value == "," {
+			*pos++ // 跳过逗号
+		}
+	}
+	return &ASTNode{Type: "Arguments", Value: args}
+}
+
+func evaluateArguments(argsNode *ASTNode, params map[string]interface{}) []interface{} {
+	var args []interface{}
+	for _, argNode := range argsNode.Value.([]*ASTNode) {
+		args = append(args, evaluateAST(argNode, params))
+	}
+	return args
+}
+
+func callFunction(name string, args []interface{}) interface{} {
+	if name == "_sum" {
+		// test
+		return _sum(args)
+	}
+	handler, ok := plugin.GetFunctionHandler(name)
+	if !ok {
+		panic(fmt.Sprintf("未知的函数: %s", name))
+	}
+	return handler(args)
+	// }
+	// switch name {
+	// case "sum":
+	//     return sum(args)
+	// // 可以在这里添加更多函数
+	// default:
+	//     panic(fmt.Sprintf("未知的函数: %s", name))
+	// }
+}
+
+func _sum(args []interface{}) interface{} {
+	var result float64
+	for _, arg := range args {
+		num, ok := toFloat64(arg)
+		if !ok {
+			panic("sum 函数的参数必须是数字")
+		}
+		result += num
+	}
+	return result
 }

@@ -79,5 +79,10 @@
         </where>
     </select>
 
+    <select id="TestFunction" resultType="User">
+        SELECT id, name, age FROM user WHERE id = #{sum(1, 2, 3)}
+    </select>
+
+
 
 </mapper>

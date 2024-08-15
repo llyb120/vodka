@@ -7,6 +7,7 @@ import (
 )
 
 var tagHandlers = sync.Map{}
+var functionHandlers = sync.Map{}
 
 func GetTagHandler(name string) (CustomTagHandler, bool) {
 	handler, ok := tagHandlers.Load(name)
@@ -41,4 +42,16 @@ type CustomTagHandler func(builder *strings.Builder, node *xml.Node, params map[
 
 func RegisterTag(tag string, handler CustomTagHandler) {
 	tagHandlers.Store(strings.ToUpper(tag), handler)
+}
+
+func RegisterFunction(name string, handler func(args []interface{}) interface{}) {
+	functionHandlers.Store(strings.ToUpper(name), handler)
+}
+
+func GetFunctionHandler(name string) (func(args []interface{}) interface{}, bool) {
+	handler, ok := functionHandlers.Load(strings.ToUpper(name))
+	if !ok {
+		return nil, false
+	}
+	return handler.(func(args []interface{}) interface{}), true
 }

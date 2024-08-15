@@ -482,7 +482,7 @@ func handleText(builder *strings.Builder, node *xml.Node, params map[string]inte
 func getValueByBlock(key string, params map[string]interface{}) any {
 	key = strings.Trim(key, "#{}")
 	// 处理三元表达式的情况
-	if strings.Contains(key, "?") {
+	if strings.Contains(key, "?") || strings.Contains(key, "(") {
 		value := runner.EvaluateExpression(key, params)
 		return value
 		//return fmt.Sprintf("%v", value)

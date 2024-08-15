@@ -277,6 +277,19 @@ plugin.RegisterTag("permission", func(builder *strings.Builder, node *xml.Node, 
 ```
 最终，该语句会被渲染为 ```select id,name,age from user where id > 0```
 
+### 自定义函数
+- 在#{}中，可以使用自定义函数，函数需要先注册，然后在#{}中使用
+```go
+plugin.RegisterFunction("sum", func(args []interface{}) interface{} {
+    return args[0].(int64) + args[1].(int64) + args[2].(int64)
+})
+```
+```xml
+<select id="TestFunction" resultType="User">
+    SELECT id, name, age FROM user WHERE id = #{sum(1, 2, 3)}
+</select>
+```
+
 
 ### 其余说明
 - GO中在insert语句中，无法直接使用nil，所以如果你需要在insert语句中使用自增主键，可以这么写，假如主键为int64，以下写法同时可以满足自增主键和非自增主键，当然，如果你只使用自增主键，最好的方法是不对主键写插入
