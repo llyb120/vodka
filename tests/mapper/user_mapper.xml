@@ -72,9 +72,12 @@
         SELECT <include refid="fields" /> FROM user
     </select>
 
+    <select id="TestCustomTag" resultType="User">
+        SELECT id, name, age FROM user
+        <where>
+            <permission id="PermissionId" key="id" value="0" />
+        </where>
+    </select>
 
-    <permission id="PermissionId">
-        where id = #{id}
-    </permission>
 
 </mapper>

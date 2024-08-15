@@ -10,6 +10,7 @@ import (
 	"strings"
 	database "vodka/database"
 	mysqld "vodka/database/mysql"
+	"vodka/plugin"
 	page "vodka/plugin/page"
 	runner "vodka/runner"
 	"vodka/xml"
@@ -204,7 +205,7 @@ func generateFunction(mapperName string, node *xml.Node, root *xml.Node) *Functi
 		var builder strings.Builder
 		var invokeParams []interface{}
 		for _, child := range node.Children {
-			handleNode(&builder, child, params, &invokeParams, root)
+			HandleNode(&builder, child, params, &invokeParams, root)
 		}
 		log.Printf("【%s】【%s】 sql : %s %v", mapperName, node.Attrs["id"], builder.String(), invokeParams)
 		// 插件系统
@@ -253,7 +254,7 @@ func generateFunction(mapperName string, node *xml.Node, root *xml.Node) *Functi
 }
 
 // 处理节点
-func handleNode(builder *strings.Builder, node *xml.Node, params map[string]interface{}, resultParams *[]interface{}, root *xml.Node) {
+func HandleNode(builder *strings.Builder, node *xml.Node, params map[string]interface{}, resultParams *[]interface{}, root *xml.Node) {
 	if node.Type == xml.Text {
 		handleText(builder, node, params, resultParams)
 	} else {
@@ -291,7 +292,7 @@ func handleIfStatement(builder *strings.Builder, node *xml.Node, params map[stri
 	// 如果表达式结果为true，则处理if语句的子节点
 	if result != false {
 		for _, child := range node.Children {
-			handleNode(builder, child, params, resultParams, root)
+			HandleNode(builder, child, params, resultParams, root)
 		}
 	}
 }
@@ -348,7 +349,7 @@ func handleForeachStatement(builder *strings.Builder, node *xml.Node, params map
 		params[mapKey] = collectionValue.Index(i).Interface()
 		// 获取map的key
 		for _, child := range node.Children {
-			handleNode(&childBuilder0, child, params, resultParams, root)
+			HandleNode(&childBuilder0, child, params, resultParams, root)
 		}
 		if childBuilder0.Len() > 0 {
 			childBuilder0.WriteString(separator)
@@ -374,7 +375,7 @@ func handleWhereStatement(builder *strings.Builder, node *xml.Node, params map[s
 	isFirstCondition := true
 	for _, child := range node.Children {
 		childBuilder := &strings.Builder{}
-		handleNode(childBuilder, child, params, resultParams, root)
+		HandleNode(childBuilder, child, params, resultParams, root)
 
 		childSQL := strings.TrimSpace(childBuilder.String())
 
@@ -401,7 +402,7 @@ func handleSetStatement(builder *strings.Builder, node *xml.Node, params map[str
 	var childBuilder strings.Builder
 	// 移除末尾的逗号
 	for _, child := range node.Children {
-		handleNode(&childBuilder, child, params, resultParams, root)
+		HandleNode(&childBuilder, child, params, resultParams, root)
 	}
 	childSQL := strings.TrimSpace(childBuilder.String())
 	if strings.HasSuffix(childSQL, ",") {
@@ -413,7 +414,7 @@ func handleSetStatement(builder *strings.Builder, node *xml.Node, params map[str
 
 func handleSqlStatement(builder *strings.Builder, node *xml.Node, params map[string]interface{}, resultParams *[]interface{}, root *xml.Node) {
 	for _, child := range node.Children {
-		handleNode(builder, child, params, resultParams, root)
+		HandleNode(builder, child, params, resultParams, root)
 	}
 }
 
@@ -431,14 +432,18 @@ func handleIncludeStatement(builder *strings.Builder, node *xml.Node, params map
 				continue
 			}
 			// 获取include的文件内容
-			handleNode(builder, child, params, resultParams, root)
+			HandleNode(builder, child, params, resultParams, root)
 			break
 		}
 	}
 }
 
 func handleCustomStatement(builder *strings.Builder, node *xml.Node, params map[string]interface{}, resultParams *[]interface{}, root *xml.Node) {
-
+	handler, ok := plugin.GetTagHandler(node.Name)
+	if !ok {
+		panic(fmt.Sprintf("未找到标签处理器: %s", node.Name))
+	}
+	handler(builder, node, params, resultParams, root)
 }
 
 // 处理文本节点

@@ -31,7 +31,7 @@ type User struct {
 
 
 
-### 定义你的mapper接口 (无需实现，vodka会自动装配这些方法)
+### 定义mapper接口 (无需实现，vodka会自动装配这些方法)
 ```go
 type UserMapper struct {
     // 基础查询
@@ -56,7 +56,7 @@ type UserMapper struct {
 }
 ```
 
-### 定义你的xml映射文件
+### 定义xml映射文件
 - 可直接使用mybatis的工具生成，无需繁琐的书写步骤
 - 针对复杂查询，在xml中和原生sql书写并无二致，只需要附加你的条件即可
 - 支持include标签，可以引用通用的sql语句
@@ -237,6 +237,8 @@ userMapper.InsertOne(&User{Name:"张三"})
 userMapper.SelectAllByMap(map[string]interface{}{"GTE_age": 18, "name": "张三"}, "", 0, 10)
 ```
 
+## 插件
+
 ### 分页插件
 - Vodka内置分页插件，简单易用
 - 只需要在查询语句外使用DoPage方法即可，代码和语句无需任何修改
@@ -253,6 +255,27 @@ fmt.Println(pg.List)
 fmt.Println(pg.TotalRows)
 
 ```
+
+### 自定义Tag
+- 当现有的标签无法满足你的时候，你可以自定义tag来增加新功能
+```go
+plugin.RegisterTag("permission", func(builder *strings.Builder, node *xml.Node, params map[string]interface{}, resultParams *[]interface{}, root *xml.Node) {
+    // 从属性获取key和value
+    key := node.Attrs["key"]
+    value := node.Attrs["value"]
+    builder.WriteString(fmt.Sprintf(" and %s > %s", key, value))
+})
+```
+
+```xml
+<select id="TestCustomTag" resultType="User">
+    SELECT id, name, age FROM user
+    <where>
+        <permission id="PermissionId" key="id" value="0" />
+    </where>
+</select>
+```
+最终，该语句会被渲染为 ```select id,name,age from user where id > 0```
 
 
 ### 其余说明

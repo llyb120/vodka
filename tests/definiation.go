@@ -28,4 +28,5 @@ type UserMapper struct {
 
 	TestInclude func() error 
 
+	TestCustomTag func() error
 }
