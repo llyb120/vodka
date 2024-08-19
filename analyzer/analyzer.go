@@ -397,7 +397,7 @@ func handleWhereStatement(builder *strings.Builder, node *xml.Node, params map[s
 	}
 }
 
-func handleSetStatement(builder *strings.Builder, node *xml.Node, params map[string]any, resultParams *[]any, root *xml.Node) {
+func handleSetStatement(builder *strings.Builder, node *xml.Node, params map[string]interface{}, resultParams *[]interface{}, root *xml.Node) {
 	builder.WriteString(" set ")
 	var childBuilder strings.Builder
 	// 移除末尾的逗号
@@ -479,7 +479,7 @@ func handleText(builder *strings.Builder, node *xml.Node, params map[string]inte
 // 根据key获取值
 // 处理 #{abc.xxx} 格式的内容
 // todo: 处理 ${abc.xxx} 格式的内容 即不处理内容直接输出
-func getValueByBlock(key string, params map[string]interface{}) any {
+func getValueByBlock(key string, params map[string]interface{}) interface{} {
 	key = strings.Trim(key, "#{}")
 	// 处理三元表达式的情况
 	if strings.Contains(key, "?") || strings.Contains(key, "(") {
@@ -505,7 +505,7 @@ func getValueByDollarBlock(key string, params map[string]interface{}) string {
 	}
 }
 
-func extractObject(v any, params map[string]any) {
+func extractObject(v interface{}, params map[string]interface{}) {
 	typeOfV := reflect.TypeOf(v)
 	if typeOfV.Kind() == reflect.Map {
 		for mk, mv := range v.(map[string]interface{}) {

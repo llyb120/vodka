@@ -16,7 +16,7 @@ func TestPage(t *testing.T) {
 	t.Run("测试分页查询", func(t *testing.T) {
 		Prepare(t)
 
-		var pg page.Page[User]
+		var pg page.Page
 		pg.PageNum = 1
 		pg.PageSize = 10
 		pg.Sort = "id desc"

@@ -6,11 +6,14 @@ import (
 	"vodka"
 	"vodka/database"
 	mapper "vodka/mapper"
+	"vodka/util"
 )
 
 type DepMapper struct {
-	mapper.VodkaMapper[Dep, int64]
-	_ struct{} `table:"dep" pk:"id"`
+	mapper.VodkaMapper
+	_  struct{} `table:"dep" pk:"id"`
+	_T Dep
+	_P int64
 }
 
 type Dep struct {
@@ -36,10 +39,10 @@ func TestBaseMapper(t *testing.T) {
 		if rows < 0 {
 			t.Fatal("insert failed")
 		}
-		rows, _, err = depMapper.InsertBatch([]*Dep{
+		rows, _, err = depMapper.InsertBatch(util.ToAnyList([]*Dep{
 			{Name: "dep1"},
 			{Name: "dep2"},
-		})
+		}))
 		if err != nil {
 			t.Fatal(err)
 		}

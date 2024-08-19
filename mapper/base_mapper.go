@@ -9,18 +9,18 @@ import (
 	"vodka/analyzer"
 )
 
-type VodkaMapper[T any, ID any] struct {
-	InsertOne            func(params *T) (int64, int64, error)                                                      `params:"params"`
-	InsertBatch          func(params []*T) (int64, int64, error)                                                    `params:"params"`
-	UpdateById           func(params *T) (int64, error)                                                             `params:"params"`
-	UpdateSelectiveById  func(params *T) (int64, error)                                                             `params:"params"`
-	UpdateByCondition    func(condition *T, action *T) (int64, error)                                               `params:"condition,action"`
+type VodkaMapper struct {
+	InsertOne            func(params interface{}) (int64, int64, error)                                                      `params:"params"`
+	InsertBatch          func(params []interface{}) (int64, int64, error)                                                    `params:"params"`
+	UpdateById           func(params interface{}) (int64, error)                                                             `params:"params"`
+	UpdateSelectiveById  func(params interface{}) (int64, error)                                                             `params:"params"`
+	UpdateByCondition    func(condition interface{}, action interface{}) (int64, error)                                               `params:"condition,action"`
 	UpdateByConditionMap func(condition map[string]interface{}, action map[string]interface{}) (int64, error)       `params:"condition,action"`
-	DeleteById           func(id ID) (int64, error)                                                                 `params:"id"`
-	SelectById           func(id ID) (*T, error)                                                                    `params:"id"`
-	SelectAll            func(params *T, order string, offset int64, limit int64) ([]*T, error)                     `params:"...params,order,offset,limit"`
-	CountAll             func(params *T) (int64, error)                                                             `params:"params"`
-	SelectAllByMap       func(params map[string]interface{}, order string, offset int64, limit int64) ([]*T, error) `params:"...params,order,offset,limit"`
+	DeleteById           func(id interface{}) (int64, error)                                                                 `params:"id"`
+	SelectById           func(id interface{}) (interface{}, error)                                                                    `params:"id"`
+	SelectAll            func(params interface{}, order string, offset int64, limit int64) ([]interface{}, error)                     `params:"...params,order,offset,limit"`
+	CountAll             func(params interface{}) (int64, error)                                                             `params:"params"`
+	SelectAllByMap       func(params map[string]interface{}, order string, offset int64, limit int64) ([]interface{}, error) `params:"...params,order,offset,limit"`
 	CountAllByMap        func(params map[string]interface{}) (int64, error)                                         `params:"params"`
 }
 
@@ -30,7 +30,7 @@ type Tag struct {
 	Sql string
 }
 
-func (m *VodkaMapper[T, ID]) BuildTags(metadata *MetaData) ([]*analyzer.Function, error) {
+func (m *VodkaMapper) BuildTags(metadata *MetaData) ([]*analyzer.Function, error) {
 	if metadata == nil {
 		return nil, errors.New("没有分析出 _ 字段附加的表信息，无法使用BaseMapper")
 	}
@@ -237,8 +237,4 @@ func buildMapCondition(builder *strings.Builder, action, condition string) {
 	// 暂时不要between
 	// builder.WriteString(fmt.Sprintf(` <if test="BETWEEN_%s != null && BETWEEN_%s != '' && BETWEEN_%s != 0"> and %s between #{%s} and #{%s} </if>`, condition, condition, condition, condition, condition, condition))
 	// builder.WriteString(fmt.Sprintf(` <if test="NOT_BETWEEN_%s != null && NOT_BETWEEN_%s != '' && NOT_BETWEEN_%s != 0"> and %s not between #{%s} and #{%s} </if>`, condition, condition, condition, condition, condition, condition))
-}
-
-type User struct {
-	VodkaMapper[User, int64]
 }

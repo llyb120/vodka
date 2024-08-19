@@ -4,19 +4,19 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"reflect"
 	"log"
+	"reflect"
 	"vodka/database"
 	"vodka/util"
 )
 
-type Page[T any] struct {
+type Page struct {
 	PageNum    int64
 	PageSize   int64
 	TotalRows  int64
 	TotalPages int64
 	Sort       string
-	List       []*T
+	List       []interface{}
 }
 
 var ThreadLocal = util.NewThreadLocal(false)
@@ -45,7 +45,7 @@ var ThreadLocal = util.NewThreadLocal(false)
 // 	return (p.PageNum - 1) * p.PageSize
 // }
 
-func DoPage[T any](page *Page[T], fun func()) error {
+func DoPage(page *Page, fun func()) error {
 	ThreadLocal.Set(page)
 	defer ThreadLocal.Remove()
 	fun()
@@ -113,7 +113,7 @@ func QueryPage(db *sql.DB, query string, args []interface{}, dest []interface{},
 	totalPages := (total + pageSize.Int() - 1) / pageSize.Int()
 	pgValue.Elem().FieldByName("TotalPages").SetInt(totalPages)
 	// 重新拼装sql语句
-	sql := fmt.Sprintf("select * from (" + query + ") as t %s limit ?,?", sort.String())
+	sql := fmt.Sprintf("select * from ("+query+") as t %s limit ?,?", sort.String())
 	log.Println("分页sql:", sql)
 	offset := (pageNum.Int() - 1) * pageSize.Int()
 	args = append(args, offset, pageSize.Int())
