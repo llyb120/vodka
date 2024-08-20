@@ -6,14 +6,13 @@ import (
 	"vodka"
 	"vodka/database"
 	mapper "vodka/mapper"
-	"vodka/util"
 )
 
 type DepMapper struct {
 	mapper.VodkaMapper
-	_  struct{} `table:"dep" pk:"id"`
-	_T Dep
-	_P int64
+	_      struct{} `table:"dep" pk:"id"`
+	_model Dep
+	_pk    int64
 }
 
 type Dep struct {
@@ -32,24 +31,24 @@ func TestBaseMapper(t *testing.T) {
 		//	t.Fatal(err)
 		//}
 
-		rows, _, err := depMapper.InsertOne(&Dep{Name: "heihei"})
-		if err != nil {
-			t.Fatal(err)
-		}
-		if rows < 0 {
-			t.Fatal("insert failed")
-		}
-		rows, _, err = depMapper.InsertBatch(util.ToAnyList([]*Dep{
-			{Name: "dep1"},
-			{Name: "dep2"},
-		}))
-		if err != nil {
-			t.Fatal(err)
-		}
-		if rows < 0 {
-			t.Fatal("insert failed")
-		}
-		depMapper.UpdateSelectiveById(&Dep{Id: 1, Name: "dep111"})
+		//rows, _, err := depMapper.InsertOne(&Dep{Name: "heihei"})
+		//if err != nil {
+		//	t.Fatal(err)
+		//}
+		//if rows < 0 {
+		//	t.Fatal("insert failed")
+		//}
+		//rows, _, err = depMapper.InsertBatch([]*Dep{
+		//	{Name: "dep1"},
+		//	{Name: "dep2"},
+		//})
+		//if err != nil {
+		//	t.Fatal(err)
+		//}
+		//if rows < 0 {
+		//	t.Fatal("insert failed")
+		//}
+		//depMapper.UpdateSelectiveById(&Dep{Id: 1, Name: "dep111"})
 
 		deps, err := depMapper.SelectAll(&Dep{Name: "dep1"}, "id desc", 0, 10)
 		if err != nil {

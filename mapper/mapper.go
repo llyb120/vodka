@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 	analyzer "vodka/analyzer"
+	database "vodka/database"
 )
 
 var mappers map[string]*Mapper
@@ -170,14 +171,14 @@ func bindMapper(source interface{}, mapper *Mapper, mapperValue reflect.Value, m
 			vodkaMapperType := field.Type
 			for j := 0; j < vodkaMapperType.NumField(); j++ {
 				vodkaField := vodkaMapperType.Field(j)
-				err := generateFunctionBody(mapper, v.Field(i), vodkaField)
+				err := generateFunctionBody(mapper, v.Field(i), vodkaField, metaData)
 				if err != nil {
 					return err
 				}
 			}
 			// log.Println("ok")
 		} else {
-			err := generateFunctionBody(mapper, v, field)
+			err := generateFunctionBody(mapper, v, field, nil)
 			if err != nil {
 				return err
 			}
@@ -188,7 +189,7 @@ func bindMapper(source interface{}, mapper *Mapper, mapperValue reflect.Value, m
 	return nil
 }
 
-func generateFunctionBody(mapper *Mapper, v reflect.Value, field reflect.StructField) error {
+func generateFunctionBody(mapper *Mapper, v reflect.Value, field reflect.StructField, metadata *MetaData) error {
 	fieldType := field.Type
 
 	// 如果是一个方法
@@ -248,8 +249,18 @@ func generateFunctionBody(mapper *Mapper, v reflect.Value, field reflect.StructF
 			resultType := fieldType.Out(i)
 			// 如果需要返回一个列表
 			if resultType.Kind() == reflect.Slice {
-				result = reflect.New(resultType).Interface()
-				resultWrappers = append(resultWrappers, result)
+				// 如果返回的结构体是interface{}，且metadata不为空（使用basemapper)
+				if resultType.Elem().Kind() == reflect.Interface && metadata != nil {
+					// 使用mockslice
+					mockSlice := &database.MockSlice{
+						Data: &[]interface{}{},
+						Type: metadata.ModelType,
+					}
+					resultWrappers = append(resultWrappers, mockSlice)
+				} else {
+					result = reflect.New(resultType).Interface()
+					resultWrappers = append(resultWrappers, result)
+				}
 				// returns = append(returns, reflect.ValueOf(result))
 			} else if resultType == reflect.TypeOf((*error)(nil)).Elem() {
 				errIndexes = append(errIndexes, i)

@@ -7,10 +7,12 @@ import (
 )
 
 type MetaData struct {
-	Namespace    string
-	TableName    string
-	PKNames      map[string]byte
-	Functions    []*analyzer.Function
+	Namespace string
+	TableName string
+	PKNames   map[string]byte
+	Functions []*analyzer.Function
+	ModelType *reflect.Type
+	PkType    *reflect.Type
 	// CustomSqlMap map[string]string
 	// Fields    []reflect.StructField
 	// Tags      []string
@@ -22,11 +24,24 @@ func NewMetaData(namespace string, mapperValue reflect.Value) *MetaData {
 		return nil
 	}
 	metadata := &MetaData{
-		Namespace:    namespace,
-		TableName:    "",
-		PKNames:      make(map[string]byte),
-		Functions:    make([]*analyzer.Function, 0),
+		Namespace: namespace,
+		TableName: "",
+		PKNames:   make(map[string]byte),
+		Functions: make([]*analyzer.Function, 0),
 	}
+	// go 1.16不支持泛型，所以必须定义 _model 和 _pk 类型
+	modelField, ok := mapperValue.Elem().Type().FieldByName("_model")
+	if !ok {
+		return nil
+	}
+	metadata.ModelType = &modelField.Type
+	//println((*(metadata.ModelType)).String())
+	pkField, ok := mapperValue.Elem().Type().FieldByName("_pk")
+	if !ok {
+		return nil
+	}
+	metadata.PkType = &pkField.Type
+	//println((*(metadata.ModelType)).String())
 	tableName := metadataField.Tag.Get("table")
 	if tableName == "" {
 		return metadata

@@ -10,6 +10,11 @@ import (
 	mysqld "vodka/database/mysql"
 )
 
+type MockSlice struct {
+	Data *[]interface{}
+	Type *reflect.Type
+}
+
 // 连接SQLite数据库
 func ConnectMySQL(dsn string) (*sql.DB, error) {
 	db, err := sql.Open("mysql", dsn)
@@ -118,7 +123,51 @@ func QueryStruct(db *sql.DB, query string, args []interface{}, dest []interface{
 		return err
 	}
 
-	for _, _dest := range dest {
+	for i, _dest := range dest {
+		// 特殊处理，go 1.16没有泛型的情况
+		if mockSlice, ok := _dest.(*MockSlice); ok {
+			// 将map中的数据填充到mockSlice中
+			// for _, m := range maps {
+			// 	mockSlice.Data = append(mockSlice.Data, m)
+			// }
+			result := []interface{}{}
+			for _, m := range maps {
+				// 创建新的结构体实例
+				newElemPtr := reflect.New(*mockSlice.Type)
+				newElem := newElemPtr.Elem()
+
+				// 遍历结构体的字段
+				for i := 0; i < newElem.NumField(); i++ {
+					field := newElem.Type().Field(i)
+					// 获取字段名，优先使用 vo 标签
+					fieldName := field.Name
+					if voTag := field.Tag.Get("vo"); voTag != "" {
+						fieldName = voTag
+					}
+
+					// 如果map中存在对应的键，则设置字段值
+					if value, ok := m[fieldName]; ok {
+						// 特殊处理一下，如果是string类型，是不能设置为nil的
+						if value == nil {
+							if field.Type.Kind() == reflect.String {
+								value = ""
+							}
+						}
+						// 将interface{}转换为字段类型
+						fieldValue := reflect.ValueOf(value)
+						if fieldValue.Type().ConvertibleTo(field.Type) {
+							newElem.Field(i).Set(fieldValue.Convert(field.Type))
+						}
+					}
+				}
+
+				// 将新的结构体添加到切片中
+				result = append(result, newElemPtr.Interface())
+			}
+			dest[i] = &result
+			continue
+		}
+
 		destValue := reflect.ValueOf(_dest)
 		// 找到指向切片的指针
 		if destValue.Kind() == reflect.Ptr && destValue.Elem().Kind() == reflect.Slice {

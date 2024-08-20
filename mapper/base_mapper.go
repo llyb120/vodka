@@ -11,17 +11,17 @@ import (
 
 type VodkaMapper struct {
 	InsertOne            func(params interface{}) (int64, int64, error)                                                      `params:"params"`
-	InsertBatch          func(params []interface{}) (int64, int64, error)                                                    `params:"params"`
+	InsertBatch          func(params interface{}) (int64, int64, error)                                                      `params:"params"`
 	UpdateById           func(params interface{}) (int64, error)                                                             `params:"params"`
 	UpdateSelectiveById  func(params interface{}) (int64, error)                                                             `params:"params"`
-	UpdateByCondition    func(condition interface{}, action interface{}) (int64, error)                                               `params:"condition,action"`
-	UpdateByConditionMap func(condition map[string]interface{}, action map[string]interface{}) (int64, error)       `params:"condition,action"`
+	UpdateByCondition    func(condition interface{}, action interface{}) (int64, error)                                      `params:"condition,action"`
+	UpdateByConditionMap func(condition map[string]interface{}, action map[string]interface{}) (int64, error)                `params:"condition,action"`
 	DeleteById           func(id interface{}) (int64, error)                                                                 `params:"id"`
-	SelectById           func(id interface{}) (interface{}, error)                                                                    `params:"id"`
-	SelectAll            func(params interface{}, order string, offset int64, limit int64) ([]interface{}, error)                     `params:"...params,order,offset,limit"`
+	SelectById           func(id interface{}) (interface{}, error)                                                           `params:"id"`
+	SelectAll            func(params interface{}, order string, offset int64, limit int64) ([]interface{}, error)            `params:"...params,order,offset,limit"`
 	CountAll             func(params interface{}) (int64, error)                                                             `params:"params"`
 	SelectAllByMap       func(params map[string]interface{}, order string, offset int64, limit int64) ([]interface{}, error) `params:"...params,order,offset,limit"`
-	CountAllByMap        func(params map[string]interface{}) (int64, error)                                         `params:"params"`
+	CountAllByMap        func(params map[string]interface{}) (int64, error)                                                  `params:"params"`
 }
 
 type Tag struct {
@@ -40,19 +40,23 @@ func (m *VodkaMapper) BuildTags(metadata *MetaData) ([]*analyzer.Function, error
 	if len(metadata.PKNames) == 0 {
 		return nil, errors.New("没有分析出 _ 字段附加的表信息，无法使用BaseMapper")
 	}
+	if metadata.ModelType == nil || metadata.PkType == nil {
+		return nil, errors.New("没有分析出 _model 和 _pk 字段附加的表信息，无法使用BaseMapper")
+	}
+	// go 1.16不支持泛型，所以必须定义 _model 和 _pk 类型
 	// 反射T类型
 	baseMapperType := reflect.TypeOf(m).Elem()
 	log.Println("Mapper类型", baseMapperType)
 
 	// 获取泛型参数T的类型
-	insertOneField, _ := baseMapperType.FieldByName("InsertOne")
-	insertOneFuncType := insertOneField.Type
+	// insertOneField, _ := baseMapperType.FieldByName("InsertOne")
+	// insertOneFuncType := insertOneField.Type
 
 	// 获取InsertOne函数的第一个参数类型，即*T
-	tPtrType := insertOneFuncType.In(0)
+	// tPtrType := insertOneFuncType.In(0)
 
 	// 获取T的类型（去掉指针）
-	tType := tPtrType.Elem()
+	tType := *metadata.ModelType
 	log.Println("T的类型:", tType)
 
 	// 获取tType中的空字段

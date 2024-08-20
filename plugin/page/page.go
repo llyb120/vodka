@@ -113,10 +113,20 @@ func QueryPage(db *sql.DB, query string, args []interface{}, dest []interface{},
 	totalPages := (total + pageSize.Int() - 1) / pageSize.Int()
 	pgValue.Elem().FieldByName("TotalPages").SetInt(totalPages)
 	// 重新拼装sql语句
-	sql := fmt.Sprintf("select * from ("+query+") as t %s limit ?,?", sort.String())
+	sql := fmt.Sprintf("select * from ("+query+") as t order by %s limit ?,?", sort.String())
 	log.Println("分页sql:", sql)
 	offset := (pageNum.Int() - 1) * pageSize.Int()
 	args = append(args, offset, pageSize.Int())
+	// dest如果有slice，必定要转为mockslice
+	//for i, _dest := range dest {
+	//	destValue := reflect.ValueOf(_dest)
+	//	if destValue.Elem().Kind() == reflect.Slice {
+	//		dest[i] = &database.MockSlice{
+	//			Data: &[]interface{}{},
+	//			//Type: destValue.Elem().Type().Elem(),
+	//		}
+	//	}
+	//}
 	resultErr := database.QueryStruct(db, sql, args, dest)
 	// 拼装到page对象中
 	// dest里必定有一个结构体指针
@@ -124,7 +134,10 @@ func QueryPage(db *sql.DB, query string, args []interface{}, dest []interface{},
 	for _, v := range dest {
 		destValue := reflect.ValueOf(v)
 		if destValue.Kind() == reflect.Ptr && destValue.Elem().Kind() == reflect.Slice {
-			list.Set(destValue.Elem())
+			for i := 0; i < destValue.Elem().Len(); i++ {
+				list.Set(reflect.Append(list, destValue.Elem().Index(i)))
+			}
+			// list.Set(destValue.Elem())
 			break
 		}
 	}
