@@ -111,6 +111,15 @@ func TestBaseMapper(t *testing.T) {
 		fmt.Println(rows)
 	})
 
+	t.Run("deleteById测试", func(t *testing.T) {
+		baseMapperPrepare(t)
+		rows, err := depMapper.DeleteById(1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		fmt.Println(rows)
+	})
+
 }
 
 var baseMapperInited = false

@@ -204,20 +204,21 @@ userMapper.Delete(1)
 ### 通用Mapper
 - 直接继承mapper.VodkaMapper，即可拥有通用Mapper的所有功能
 - 以下基础语句会自动装配，无需再书写xml文件
+- go 1.16版本不支持泛型，所以所有参数与返回值都要使用interface{}传递
 ```go
-type VodkaMapper[T any, ID any] struct {
-	InsertOne            func(params *T) (int64, int64, error)                                                      `params:"params"`
-	InsertBatch          func(params []*T) (int64, int64, error)                                                    `params:"params"`
-	UpdateById           func(params *T) (int64, error)                                                             `params:"params"`
-	UpdateSelectiveById  func(params *T) (int64, error)                                                             `params:"params"`
-	UpdateByCondition    func(condition *T, action *T) (int64, error)                                               `params:"condition,action"`
-	UpdateByConditionMap func(condition map[string]interface{}, action map[string]interface{}) (int64, error)       `params:"condition,action"`
-	DeleteById           func(id ID) (int64, error)                                                                 `params:"id"`
-	SelectById           func(id ID) (*T, error)                                                                    `params:"id"`
-	SelectAll            func(params *T, order string, offset int64, limit int64) ([]*T, error)                     `params:"...params,order,offset,limit"` // 多个参数下，框架无法判断是否需要展开，所以使用...来表示
-	CountAll             func(params *T) (int64, error)                                                             `params:"params"`
-	SelectAllByMap       func(params map[string]interface{}, order string, offset int64, limit int64) ([]*T, error) `params:"...params,order,offset,limit"` // 多个参数下，框架无法判断是否需要展开，所以使用...来表示
-	CountAllByMap        func(params map[string]interface{}) (int64, error)                                         `params:"params"`
+type VodkaMapper struct {
+    InsertOne            func(params interface{}) (int64, int64, error)                                                      `params:"params"`
+    InsertBatch          func(params interface{}) (int64, int64, error)                                                      `params:"params"`
+    UpdateById           func(params interface{}) (int64, error)                                                             `params:"params"`
+    UpdateSelectiveById  func(params interface{}) (int64, error)                                                             `params:"params"`
+    UpdateByCondition    func(condition interface{}, action interface{}) (int64, error)                                      `params:"condition,action"`
+    UpdateByConditionMap func(condition map[string]interface{}, action map[string]interface{}) (int64, error)                `params:"condition,action"`
+    DeleteById           func(id interface{}) (int64, error)                                                                 `params:"id"`
+    SelectById           func(id interface{}) (interface{}, error)                                                           `params:"id"`
+    SelectAll            func(params interface{}, order string, offset int64, limit int64) ([]interface{}, error)            `params:"...params,order,offset,limit"`
+    CountAll             func(params interface{}) (int64, error)                                                             `params:"params"`
+    SelectAllByMap       func(params map[string]interface{}, order string, offset int64, limit int64) ([]interface{}, error) `params:"...params,order,offset,limit"`
+    CountAllByMap        func(params map[string]interface{}) (int64, error)                                                  `params:"params"`
 }
 
 // 示例
@@ -225,6 +226,9 @@ type UserMapper struct {
     mapper.VodkaMapper[User, int64]
     // 需要额外书写表名和主键定义
     _ any `table:"user" pk:"id"`
+	// 1.16需要额外定义
+    _model User
+    _pk int64
 }
 
 //test
@@ -243,7 +247,7 @@ userMapper.SelectAllByMap(map[string]interface{}{"GTE_age": 18, "name": "张三"
 - Vodka内置分页插件，简单易用
 - 只需要在查询语句外使用DoPage方法即可，代码和语句无需任何修改
 ```go
-var pg page.Page[User]
+var pg page.Page
 pg.PageNum = 1
 pg.PageSize = 10
 pg.Sort = "id desc"
