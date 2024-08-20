@@ -131,6 +131,7 @@ func (m *VodkaMapper[T, ID]) BuildTags(metadata *MetaData) ([]*analyzer.Function
 		if _, ok := metadata.PKNames[tags[i]]; ok {
 			// updateByIdBuilder.WriteString(tags[i] + " = #{" + tags[i] + "}")
 			selectByIdBuilder.WriteString(" and " + tags[i] + " = #{" + tags[i] + "}")
+			deleteByIdBuilder.WriteString(" and " + tags[i] + " = #{" + tags[i] + "}")
 		} else {
 			updateByIdBuilder.WriteString(tags[i] + " = #{" + tags[i] + "},")
 			// 处理selective的类型，如果是int int64 float64 这些，不能判断==null
@@ -142,7 +143,6 @@ func (m *VodkaMapper[T, ID]) BuildTags(metadata *MetaData) ([]*analyzer.Function
 			// } else if(is{
 			// 	updateSelectiveByIdBuilder.WriteString(fmt.Sprintf(`<if test="%s != null">%s = #{%s},</if>`, tags[i], tags[i], tags[i]))
 			// }
-			deleteByIdBuilder.WriteString(" and " + tags[i] + " = #{" + tags[i] + "}")
 			// if i != len(fields)-1 {
 			// 	updateByIdBuilder.WriteString(",")
 			// }

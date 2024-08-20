@@ -4,8 +4,8 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"reflect"
 	"log"
+	"reflect"
 	"vodka/database"
 	"vodka/util"
 )
@@ -113,7 +113,7 @@ func QueryPage(db *sql.DB, query string, args []interface{}, dest []interface{},
 	totalPages := (total + pageSize.Int() - 1) / pageSize.Int()
 	pgValue.Elem().FieldByName("TotalPages").SetInt(totalPages)
 	// 重新拼装sql语句
-	sql := fmt.Sprintf("select * from (" + query + ") as t %s limit ?,?", sort.String())
+	sql := fmt.Sprintf("select * from ("+query+") as t order by %s limit ?,?", sort.String())
 	log.Println("分页sql:", sql)
 	offset := (pageNum.Int() - 1) * pageSize.Int()
 	args = append(args, offset, pageSize.Int())
