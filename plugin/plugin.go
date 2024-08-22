@@ -1,9 +1,9 @@
 package plugin
 
 import (
+	"github.com/llyb120/vodka/xml"
 	"strings"
 	"sync"
-	"vodka/xml"
 )
 
 var tagHandlers = sync.Map{}

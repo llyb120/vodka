@@ -114,6 +114,14 @@ func TestEvaluateExpression(t *testing.T) {
 			params:   map[string]interface{}{},
 			expected: float64(6),
 		},
+		{
+			name: "比较slice",
+			expr: "len(a) == 0",
+			params: map[string]interface{}{
+				"a": []string{"aaa"},
+			},
+			expected: true,
+		},
 
 		// 可以添加更多测试用例
 	}

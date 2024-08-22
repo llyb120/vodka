@@ -6,7 +6,6 @@ import (
 
 var DB *sql.DB
 
-
 func SetDB(db *sql.DB) {
 	DB = db
 }

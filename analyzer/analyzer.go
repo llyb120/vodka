@@ -3,17 +3,17 @@ package analyzer
 import (
 	"errors"
 	"fmt"
+	database "github.com/llyb120/vodka/database"
+	mysqld "github.com/llyb120/vodka/database/mysql"
+	"github.com/llyb120/vodka/plugin"
+	page "github.com/llyb120/vodka/plugin/page"
+	runner "github.com/llyb120/vodka/runner"
+	"github.com/llyb120/vodka/xml"
 	"log"
 	"reflect"
 	"regexp"
 	"runtime/debug"
 	"strings"
-	database "vodka/database"
-	mysqld "vodka/database/mysql"
-	"vodka/plugin"
-	page "vodka/plugin/page"
-	runner "vodka/runner"
-	"vodka/xml"
 )
 
 const (
@@ -527,6 +527,9 @@ func extractStructFields(structValue reflect.Value, params map[string]interface{
 
 		// 优先使用vo tag
 		key := field.Tag.Get("vo")
+		if key == "" {
+			key = field.Tag.Get("json")
+		}
 		if key == "" {
 			key = field.Name
 		}

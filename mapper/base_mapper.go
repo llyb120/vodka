@@ -3,10 +3,10 @@ package mapper
 import (
 	"errors"
 	"fmt"
+	"github.com/llyb120/vodka/analyzer"
 	"log"
 	"reflect"
 	"strings"
-	"vodka/analyzer"
 )
 
 type VodkaMapper struct {
@@ -40,8 +40,8 @@ func (m *VodkaMapper) BuildTags(metadata *MetaData) ([]*analyzer.Function, error
 	if len(metadata.PKNames) == 0 {
 		return nil, errors.New("没有分析出 _ 字段附加的表信息，无法使用BaseMapper")
 	}
-	if metadata.ModelType == nil || metadata.PkType == nil {
-		return nil, errors.New("没有分析出 _model 和 _pk 字段附加的表信息，无法使用BaseMapper")
+	if metadata.ModelType == nil {
+		return nil, errors.New("没有分析出 _model 字段附加的表信息，无法使用BaseMapper")
 	}
 	// go 1.16不支持泛型，所以必须定义 _model 和 _pk 类型
 	// 反射T类型
@@ -84,6 +84,9 @@ func (m *VodkaMapper) BuildTags(metadata *MetaData) ([]*analyzer.Function, error
 		// } else {
 		if voTag := field.Tag.Get("vo"); voTag != "" {
 			tags = append(tags, voTag)
+			fields = append(fields, field)
+		} else if jsonTag := field.Tag.Get("json"); jsonTag != "" {
+			tags = append(tags, jsonTag)
 			fields = append(fields, field)
 		}
 		// }

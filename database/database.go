@@ -2,12 +2,14 @@ package database
 
 import (
 	"database/sql"
+	"encoding/binary"
 	"errors"
 	"fmt"
-	_ "github.com/go-sql-driver/mysql" // 添加这行
+	mysqld "github.com/llyb120/vodka/database/mysql"
 	"reflect"
 	"strconv"
-	mysqld "vodka/database/mysql"
+
+	_ "github.com/go-sql-driver/mysql" // 添加这行
 )
 
 type MockSlice struct {
@@ -61,8 +63,26 @@ func QueryMap(db *sql.DB, query string, args ...interface{}) ([]map[string]inter
 		rowMap := make(map[string]interface{})
 		for i, col := range columns {
 			val := values[i]
-			b, ok := val.([]byte)
-			if ok {
+			if a, ok := val.([]uint8); ok {
+				var num uint64
+				switch len(a) {
+				case 1:
+					num = uint64(a[0])
+					rowMap[col] = num
+				case 2:
+					num = uint64(binary.BigEndian.Uint16(a))
+					rowMap[col] = num
+				case 4:
+					num = uint64(binary.BigEndian.Uint32(a))
+					rowMap[col] = num
+				case 8:
+					num = binary.BigEndian.Uint64(a)
+					rowMap[col] = num
+				default:
+					// 处理其他长度的情况
+					rowMap[col] = string(a)
+				}
+			} else if b, ok := val.([]byte); ok {
 				rowMap[col] = string(b)
 			} else {
 				rowMap[col] = val
@@ -143,6 +163,8 @@ func QueryStruct(db *sql.DB, query string, args []interface{}, dest []interface{
 					fieldName := field.Name
 					if voTag := field.Tag.Get("vo"); voTag != "" {
 						fieldName = voTag
+					} else if jsonTag := field.Tag.Get("json"); jsonTag != "" {
+						fieldName = jsonTag
 					}
 
 					// 如果map中存在对应的键，则设置字段值
@@ -157,6 +179,32 @@ func QueryStruct(db *sql.DB, query string, args []interface{}, dest []interface{
 						fieldValue := reflect.ValueOf(value)
 						if fieldValue.Type().ConvertibleTo(field.Type) {
 							newElem.Field(i).Set(fieldValue.Convert(field.Type))
+						} else {
+							// 数字 -> bool
+							if field.Type.Kind() == reflect.Bool {
+								switch value := value.(type) {
+								case int:
+									newElem.Field(i).SetBool(value != 0)
+								case int8:
+									newElem.Field(i).SetBool(value != 0)
+								case int16:
+									newElem.Field(i).SetBool(value != 0)
+								case int32:
+									newElem.Field(i).SetBool(value != 0)
+								case int64:
+									newElem.Field(i).SetBool(value != 0)
+								case uint:
+									newElem.Field(i).SetBool(value != 0)
+								case uint8:
+									newElem.Field(i).SetBool(value != 0)
+								case uint16:
+									newElem.Field(i).SetBool(value != 0)
+								case uint32:
+									newElem.Field(i).SetBool(value != 0)
+								case uint64:
+									newElem.Field(i).SetBool(value != 0)
+								}
+							}
 						}
 					}
 				}
@@ -190,6 +238,8 @@ func QueryStruct(db *sql.DB, query string, args []interface{}, dest []interface{
 					fieldName := field.Name
 					if voTag := field.Tag.Get("vo"); voTag != "" {
 						fieldName = voTag
+					} else if jsonTag := field.Tag.Get("json"); jsonTag != "" {
+						fieldName = jsonTag
 					}
 
 					// 如果map中存在对应的键，则设置字段值
@@ -204,6 +254,32 @@ func QueryStruct(db *sql.DB, query string, args []interface{}, dest []interface{
 						fieldValue := reflect.ValueOf(value)
 						if fieldValue.Type().ConvertibleTo(field.Type) {
 							newElem.Field(i).Set(fieldValue.Convert(field.Type))
+						} else {
+							// 数字 -> bool
+							if field.Type.Kind() == reflect.Bool {
+								switch value := value.(type) {
+								case int:
+									newElem.Field(i).SetBool(value != 0)
+								case int8:
+									newElem.Field(i).SetBool(value != 0)
+								case int16:
+									newElem.Field(i).SetBool(value != 0)
+								case int32:
+									newElem.Field(i).SetBool(value != 0)
+								case int64:
+									newElem.Field(i).SetBool(value != 0)
+								case uint:
+									newElem.Field(i).SetBool(value != 0)
+								case uint8:
+									newElem.Field(i).SetBool(value != 0)
+								case uint16:
+									newElem.Field(i).SetBool(value != 0)
+								case uint32:
+									newElem.Field(i).SetBool(value != 0)
+								case uint64:
+									newElem.Field(i).SetBool(value != 0)
+								}
+							}
 						}
 					}
 				}
@@ -258,6 +334,8 @@ func QueryStruct(db *sql.DB, query string, args []interface{}, dest []interface{
 					fieldName := field.Name
 					if voTag := field.Tag.Get("vo"); voTag != "" {
 						fieldName = voTag
+					} else if jsonTag := field.Tag.Get("json"); jsonTag != "" {
+						fieldName = jsonTag
 					}
 
 					// 如果map中存在对应的键，则设置字段值

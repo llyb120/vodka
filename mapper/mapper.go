@@ -1,14 +1,19 @@
 package mapper
 
 import (
+	"embed"
 	"errors"
+	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"sync"
-	analyzer "vodka/analyzer"
-	database "vodka/database"
+
+	analyzer "github.com/llyb120/vodka/analyzer"
+	database "github.com/llyb120/vodka/database"
+	"github.com/llyb120/vodka/plugin"
 )
 
 var mappers map[string]*Mapper
@@ -37,7 +42,48 @@ type MapperItem struct {
 	MethodId string
 }
 
+func ScanEmbedMapper(staticFiles embed.FS) error {
+	plugin.RegisterCommonFunc()
+	var wg sync.WaitGroup
+	var analyzers []*analyzer.Analyzer
+	rwMutex := sync.RWMutex{}
+	// 遍历嵌入的文件系统
+	err := fs.WalkDir(staticFiles, "static", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// 检查文件是否为XML
+		if !d.IsDir() && strings.HasSuffix(strings.ToLower(d.Name()), ".xml") {
+			// 读取XML文件内容
+			content, err := staticFiles.ReadFile(path)
+			if err != nil {
+				return err
+			}
+			wg.Add(1)
+			go func(path string) {
+				// 输出找到的XML文件路径
+				fmt.Println("找到XML文件:", path)
+				defer wg.Done()
+				parser := analyzer.NewAnalyzer(string(content))
+				parser.Parse()
+				rwMutex.Lock()
+				defer rwMutex.Unlock()
+				analyzers = append(analyzers, parser)
+			}(path)
+		}
+		return nil
+	})
+	wg.Wait()
+	if err != nil {
+		return err
+	}
+	// 整理所有的analyzer，将相同命名空间的mapper集合到一起
+	return InitMappers(analyzers)
+}
+
 func ScanMapper(dir string) error {
+	plugin.RegisterCommonFunc()
 	var wg sync.WaitGroup
 	var analyzers []*analyzer.Analyzer
 	rwMutex := sync.RWMutex{}

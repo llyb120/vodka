@@ -1,9 +1,9 @@
 package mapper
 
 import (
+	"github.com/llyb120/vodka/analyzer"
 	"reflect"
 	"strings"
-	"vodka/analyzer"
 )
 
 type MetaData struct {
@@ -12,7 +12,7 @@ type MetaData struct {
 	PKNames   map[string]byte
 	Functions []*analyzer.Function
 	ModelType *reflect.Type
-	PkType    *reflect.Type
+	// PkType    *reflect.Type
 	// CustomSqlMap map[string]string
 	// Fields    []reflect.StructField
 	// Tags      []string
@@ -30,17 +30,22 @@ func NewMetaData(namespace string, mapperValue reflect.Value) *MetaData {
 		Functions: make([]*analyzer.Function, 0),
 	}
 	// go 1.16不支持泛型，所以必须定义 _model 和 _pk 类型
-	modelField, ok := mapperValue.Elem().Type().FieldByName("_model")
-	if !ok {
-		return nil
+	// 如果metaField是指针类型，则使用它指向的类型
+	metadataFieldType := metadataField.Type
+	if metadataFieldType.Kind() == reflect.Ptr {
+		metadataFieldType = metadataFieldType.Elem()
 	}
-	metadata.ModelType = &modelField.Type
+	// modelField, ok := mapperValue.Elem().Type().FieldByName("_model")
+	// if !ok {
+	// 	return nil
+	// }
+	metadata.ModelType = &metadataFieldType
 	//println((*(metadata.ModelType)).String())
-	pkField, ok := mapperValue.Elem().Type().FieldByName("_pk")
-	if !ok {
-		return nil
-	}
-	metadata.PkType = &pkField.Type
+	// pkField, ok := mapperValue.Elem().Type().FieldByName("_pk")
+	// if !ok {
+	// 	return nil
+	// }
+	// metadata.PkType = &pkField.Type
 	//println((*(metadata.ModelType)).String())
 	tableName := metadataField.Tag.Get("table")
 	if tableName == "" {

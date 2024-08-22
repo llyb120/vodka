@@ -2,11 +2,11 @@ package runner
 
 import (
 	"fmt"
+	"github.com/llyb120/vodka/plugin"
 	"reflect"
 	"strconv"
 	"strings"
 	"unicode"
-	"vodka/plugin"
 )
 
 // TokenType 定义
@@ -540,7 +540,8 @@ func GetValue(key string, params interface{}) interface{} {
 				field, found := rv.Type().FieldByNameFunc(func(fieldName string) bool {
 					field, _ := rv.Type().FieldByName(fieldName)
 					tag := field.Tag.Get("vo")
-					return tag == k || fieldName == k
+					jsonTag := field.Tag.Get("json")
+					return tag == k || jsonTag == k || fieldName == k
 				})
 
 				if found {

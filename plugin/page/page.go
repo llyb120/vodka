@@ -4,10 +4,10 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/llyb120/vodka/database"
+	"github.com/llyb120/vodka/util"
 	"log"
 	"reflect"
-	"vodka/database"
-	"vodka/util"
 )
 
 type Page struct {
