@@ -264,7 +264,8 @@ plugin.RegisterTag("permission", func(builder *strings.Builder, node *xml.Node, 
     // 从属性获取key和value
     key := node.Attrs["key"]
     value := node.Attrs["value"]
-    builder.WriteString(fmt.Sprintf(" and %s > %s", key, value))
+    builder.WriteString(fmt.Sprintf(" and %s > ? ", key))
+    *requestParams = append(*requestParams, value)
 })
 ```
 
