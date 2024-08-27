@@ -223,12 +223,9 @@ type VodkaMapper struct {
 
 // 示例
 type UserMapper struct {
-    mapper.VodkaMapper[User, int64]
-    // 需要额外书写表名和主键定义
-    _ any `table:"user" pk:"id"`
-	// 1.16需要额外定义
-    _model User
-    _pk int64
+    mapper.VodkaMapper
+    // go 1.16 无法使用泛型，所以通用mapper需要指明类型，额外书写表名和主键定义，如果项目中多是自定义sql不需要通用mapper，则可以跳过本节
+    _ User `table:"user" pk:"id"`
 }
 
 //test
